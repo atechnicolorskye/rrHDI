@@ -37,7 +37,7 @@ module load gcc/9.2.0
 #---------------------------------------------------------------------------------
 # Commands to execute below...
 
-d=$1 
+s=$1 
 x=$2
 b=$3
 e=$4
@@ -45,7 +45,9 @@ g=$5
 r=$6
 n=$7
 p=$8
-s=$9
+d=$9
+shift
+i=$9
 
-echo "$d $x $b $e $g $r $n $p $s"
-Rscript run_single.R -d $d -x $x -b $b -e $e -g $g -r $r -n $n -p $p -s $s
+echo "$s $x $b $e $g $r $n $p $d $i"
+Rscript single_experiment.R -s $s -x $x -b $b -e $e -g $g -r $r -n $n -p $p -d $d -i $i
