@@ -71,6 +71,6 @@ rr_dantzig = function(y, X, n_g, M, a_ind, a_val, n_ind, n_val, g_design, scale_
   
   returnList <- list("ci_a" = ci_a,"ci_n" = ci_n)
   return(returnList)
-} %>% 
+}
 
 

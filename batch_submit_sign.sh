@@ -23,8 +23,7 @@ for d in 1000; do
 # i: # solves
 for i in 500; do
   # echo "$s $x $b $e $g $r $n $p $d $i"
-  # sbatch --account=pi-mkolar 
-  ./r_submit.sh $s $x $b $e $g $r 0 0 $d $i &
+  sbatch --account=pi-mkolar r_submit.sh $s $x $b $e $g $r 0 0 $d $i &
 done;
 done;
 done;
