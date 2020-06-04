@@ -10,7 +10,7 @@ library(parallel)
 library(HDCI) # Liu et. al
 library(hdi) # Buhlmann
 source("lasso_inference.R") # Montanari
-source("silm.R") # Zhang and Guang
+source("silm.R") # Zhang and Cheng
 source("randomization_hdi.R") # RR
 
 option_list = list(
@@ -29,7 +29,7 @@ option_list = list(
 opt_parser = OptionParser(option_list=option_list, add_help_option=FALSE)
 opt = parse_args(opt_parser)
 
-main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_list, p_list, n_draws, n_solve){
+main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_list, p_list, n_draws, n_solve, scale=TRUE){
   print(sprintf("--===-  s:           %d ==--===", s0))
   print(sprintf("--===-  X_design:    %s ==--===", X_design))
   print(sprintf("--===-  beta_design: %s ==--===", beta_design))
@@ -40,6 +40,7 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
   print(sprintf("--===-  p:           %s ==--===", p_list))
   print(sprintf("--===-  n_draws:     %s ==--===", n_draws))
   print(sprintf("--===-  n_solve:     %s ==--===", n_solve))
+  print(sprintf("--===-  scale:       %s ==--===", scale))
   
   for (i in 1:length(n_list)){
     n = n_list[i]
@@ -133,9 +134,14 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       # Solve for M
       S <- (t(x) %*% x) / n
       lambda_min <- min(.1, 2 * sqrt(log(p) / n))
+      # Get path of Ms from fastclime
       dantzig_M <- fastclime(S, lambda.min=lambda_min, nlambda=abs(n_solve))
-      M = dantzig_M$icovlist[[length(dantzig_M$icovlist)]]
-      out_rr = rr_dantzig(y, x, n_draws, t(M), ind_0, beta_0, ind_1, beta_1, g_design, TRUE)
+      # Select best M
+      M = sel_M(S, dantzig_M$icovlist, p, tol=2e-3)$M_star 
+      # if (norm(as.matrix(M), 'F') > 1e4){
+      #   browser()
+      # }
+      out_rr = rr_dantzig(y, x, n_draws, t(M), ind_0, beta_0, ind_1, beta_1, g_design, scale)
       
       ci_rr_a = out_rr$ci_a
       ci_rr_n = out_rr$ci_n
@@ -147,6 +153,9 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       cov_rr_n = mean(intv_rr_n)
       len_rr_a = mean(ci_rr_a[,2] - ci_rr_a[,1])
       len_rr_n = mean(ci_rr_n[,2] - ci_rr_n[,1])
+      
+      print(sprintf("1Norm(Beta): %f, 1Norm(dBeta): %f, Supp(Beta): %s, 1Norm(eps): %f", 
+                    out_rr$norm1_beta, out_rr$norm1_dbeta, out_rr$norm0_beta, out_rr$norm1_eps))
       
       if (n_solve > 0) {
         ## 1. Residual Bootstrap Lasso + Partial Ridge, parallel somehow doesn't play nice
@@ -242,18 +251,19 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
     ## Replications over. Save results.
     print("--===-    RESULTS ==--===")
     cm = as.data.frame(t(colMeans(Q, na.rm=T)))
-    R1 = cbind(cm, data.frame(s=s0, x=X_design, b=beta_design, e=err_design, g=g_design, n_draws=n_draws, n_solve=n_solve))
+    R1 = cbind(cm, data.frame(s=s0, x=X_design, b=beta_design, e=err_design, g=g_design, n_draws=n_draws, n_solve=n_solve, scale=scale))
     Results = rbind(Results, R1)
-    write.csv(Results, file=sprintf("out/s_%d_x_%s_b_%s_e_%s_g_%s_r_%d_n_%d_p_%d_d_%d_i_%d.csv",
-                                    s0, X_design, beta_design, err_design, g_design, nsim, n, p, n_draws, n_solve))
+    write.csv(Results, file=sprintf("out/s_%d_x_%s_b_%s_e_%s_g_%s_r_%d_n_%d_p_%d_d_%d_i_%d_scale_%s.csv",
+                                    s0, X_design, beta_design, err_design, g_design, nsim, n, p, n_draws, n_solve, scale))
     print(Results)
     print("--===- --=-=== ==--===")
   }
 }
 
 # main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, opt$n, opt$p, opt$n_draws, opt$n_solve)
-main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve)
+main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, TRUE)
+main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, FALSE)
 
 # Test
-# main_sim(3, 'N2', 'D1', 'HMG', 'perm', 5, 50, 100, 1000, 100)
+# main_sim(10, 'N2', 'D1', 'HMG', 'perm', 10, 50, 100, 1000, -500, TRUE)
 

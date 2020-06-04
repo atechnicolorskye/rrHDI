@@ -23,7 +23,7 @@ for r in 50; do
 # d: # draws
 for d in 1000; do
 # i: # solves
-for i in 500; do
+for i in -500; do
 # for i in 100; do
   # echo "$s $x $b $e $g $r $n $p $d $i"
   sbatch --account=pi-mkolar r_submit.sh $s $x $b $e $g $r 0 0 $d $i &

@@ -9,8 +9,8 @@
 # Resources requested
 
 #SBATCH --partition=standard       # standard (default), long, gpu, mpi, highmem
-#SBATCH --cpus-per-task=4          # number of CPUs requested (for parallel tasks)
-#SBATCH --mem-per-cpu=16G           # requested memory
+#SBATCH --cpus-per-task=1          # number of CPUs requested (for parallel tasks)
+#SBATCH --mem-per-cpu=4G           # requested memory
 #SBATCH --time=0-12:00:00          # wall clock limit (d-hh:mm:ss)
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=sikai.lee@chicagobooth.edu
