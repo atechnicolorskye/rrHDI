@@ -265,5 +265,9 @@ main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, o
 main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, FALSE)
 
 # Test
+<<<<<<< HEAD
 # main_sim(10, 'N2', 'D1', 'HMG', 'perm', 10, 50, 100, 1000, -500, TRUE)
+=======
+# main_sim(10, 'N2', 'D1', 'HMG', 'perm', 50, 50, 100, 1000, -500, TRUE)
+>>>>>>> acb98434dadbfeacb2d0b0ecb493871ed4ba84b6
 
