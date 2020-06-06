@@ -23,7 +23,8 @@ option_list = list(
   make_option(c("-n", "--n"), type="integer"),
   make_option(c("-p", "--p"), type="integer"),
   make_option(c("-d", "--n_draws"), type="integer"),
-  make_option(c("-i", "--n_solve"), type="integer")
+  make_option(c("-i", "--n_solve"), type="integer"),
+  make_option(c("-m", "--scale"), type="integer")
 ); 
 
 opt_parser = OptionParser(option_list=option_list, add_help_option=FALSE)
@@ -51,16 +52,16 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       cols = c( "a_cov_rr", "a_len_rr", 
                 "n_cov_rr", "n_len_rr")
       # Cache results
-      Q = matrix(0, nrow=0, ncol=4) 
-      colnames(Q) = cols[1:4]
+      Q = matrix(0, nrow=0, ncol=length(cols)) 
+      colnames(Q) = cols
     }
     else{
       cols = c( "a_cov_blpr", "a_cov_hdi", "a_cov_dlasso", "a_cov_silm", "a_cov_rr", 
                 "a_len_blpr", "a_len_hdi", "a_len_dlasso", "a_len_silm", "a_len_rr",
                 "n_cov_blpr", "n_cov_hdi", "n_cov_dlasso", "n_cov_silm", "n_cov_rr", 
                 "n_len_blpr", "n_len_hdi", "n_len_dlasso", "n_len_silm", "n_len_rr")
-      Q = matrix(0, nrow=0, ncol=20) 
-      colnames(Q) = cols[1:20]
+      Q = matrix(0, nrow=0, ncol=length(cols)) 
+      colnames(Q) = cols
     }
     Results = matrix(0, nrow=0, ncol=length(cols))
     colnames(Results) = cols
@@ -69,12 +70,10 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
     rho = 0.8
     Tptz = rho^abs(matrix(1:p, nrow=p, ncol=p, byrow=F) - matrix(1:p, nrow=p, ncol=p, byrow=T))
     
-    seed = 0
     n_cores = detectCores(all.tests = FALSE, logical = TRUE)
   
     for (i in 1:nsim){
-      seed = seed + 1
-      set.seed(seed)
+      set.seed(i)
       
       print(sprintf("--===-  %d/%d iter ==--===",i, nsim))
       ######################### START DGP ############################
@@ -137,12 +136,9 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       # Get path of Ms from fastclime
       dantzig_M <- fastclime(S, lambda.min=lambda_min, nlambda=abs(n_solve))
       # Select best M
-      M = sel_M(S, dantzig_M$icovlist, p, tol=2e-3)$M_star 
-      # if (norm(as.matrix(M), 'F') > 1e4){
-      #   browser()
-      # }
+      M = sel_M(S, dantzig_M$icovlist, p, tol=2e-3)$M_star
       out_rr = rr_dantzig(y, x, n_draws, t(M), ind_0, beta_0, ind_1, beta_1, g_design, scale)
-      
+
       ci_rr_a = out_rr$ci_a
       ci_rr_n = out_rr$ci_n
       stopifnot(nrow(ci_rr_a)==length(beta_0))
@@ -153,12 +149,12 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       cov_rr_n = mean(intv_rr_n)
       len_rr_a = mean(ci_rr_a[,2] - ci_rr_a[,1])
       len_rr_n = mean(ci_rr_n[,2] - ci_rr_n[,1])
-      
-      print(sprintf("1Norm(Beta): %f, 1Norm(dBeta): %f, Supp(Beta): %s, 1Norm(eps): %f", 
-                    out_rr$norm1_beta, out_rr$norm1_dbeta, out_rr$norm0_beta, out_rr$norm1_eps))
-      
+
+      # print(sprintf("1Norm(Beta): %f, 1Norm(dBeta): %f, Supp(Beta): %s, 1Norm(eps): %f",
+      #               out_rr$norm1_beta, out_rr$norm1_dbeta, out_rr$norm0_beta, out_rr$norm1_eps))
+
       if (n_solve > 0) {
-        ## 1. Residual Bootstrap Lasso + Partial Ridge, parallel somehow doesn't play nice
+        ## 1. Residual Bootstrap Lasso + Partial Ridge
         print("> Res. Bootstrap + Ridge")
         out_blpr = bootLPR(x = x, y = y, type.boot = "residual", B = n_draws,
                            parallel = TRUE, parallel.boot = TRUE, ncores.boot = n_cores)
@@ -174,7 +170,7 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
         len_blpr_a = mean(ci_blpr_a[,2] - ci_blpr_a[,1])
         len_blpr_n = mean(ci_blpr_n[,2] - ci_blpr_n[,1])
 
-        ## 2. Buhlmann
+        ## 2. Buhlmann, have experienced a weird crash, see slurm-1891414.out
         print("> Bulhmann")
         # Use wild when g_design is sign
         if (g_design == "sign") {
@@ -260,14 +256,9 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
   }
 }
 
-# main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, opt$n, opt$p, opt$n_draws, opt$n_solve)
-main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, TRUE)
-main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, FALSE)
+main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(opt$n), c(opt$p), opt$n_draws, opt$n_solve, opt$scale)
+# main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, TRUE)
+# main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, FALSE)
 
 # Test
-<<<<<<< HEAD
-# main_sim(10, 'N2', 'D1', 'HMG', 'perm', 10, 50, 100, 1000, -500, TRUE)
-=======
-# main_sim(10, 'N2', 'D1', 'HMG', 'perm', 50, 50, 100, 1000, -500, TRUE)
->>>>>>> acb98434dadbfeacb2d0b0ecb493871ed4ba84b6
-
+# main_sim(10, 'N2', 'D1', 'HMG', 'perm', 10, 50, 100, 1000, 500, TRUE)

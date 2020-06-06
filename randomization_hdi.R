@@ -43,9 +43,8 @@ rr_dantzig = function(y, X, n_g, M, a_ind, a_val, n_ind, n_val, g_design, scale_
   if (norm(as.matrix(beta_dlasso), '1') > 300){
     browser()
   }
-  if (scale_res == TRUE){
-    # Inflates epsilons according to eq. 24 of Zhang and Cheng
-    # print('Scale TRUE')
+  if (scale_res == 1){
+    # Inflates epsilons according to proposed heuristic from eq. 24 of Zhang and Cheng
     eps = eps * sqrt(n / (n - sum(abs(sqrt_lasso$beta) > 0)))
   }
   
