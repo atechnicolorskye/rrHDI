@@ -3,10 +3,6 @@ library(hdi)
 library(mvtnorm)
 library(RPtests)
 
-Rcpp::sourceCpp("cRAMSES_V.cpp")
-source("RAMSES_V.R") # Randomization Inferenc
-
-
 get_perm <- function(p){
   ind <- sample(p)
   while(any(ind == 1:p)){

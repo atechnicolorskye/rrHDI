@@ -256,9 +256,9 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
   }
 }
 
-main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(opt$n), c(opt$p), opt$n_draws, opt$n_solve, opt$scale)
+# main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(opt$n), c(opt$p), opt$n_draws, opt$n_solve, opt$scale)
 # main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, TRUE)
 # main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, FALSE)
 
 # Test
-# main_sim(10, 'N2', 'D1', 'HMG', 'perm', 10, 50, 100, 1000, 500, TRUE)
+main_sim(10, 'N2', 'D1', 'HMG', 'perm', 10, 50, 100, 1000, -100, TRUE)

@@ -2,8 +2,6 @@
 // [[Rcpp::depends("RcppArmadillo")]]
 // [[Rcpp::plugins(cpp11)]]
 
-
-
 // JLK: below function is taken from
 // http://gallery.rcpp.org/articles/fast-linear-model-with-armadillo/
 // [[Rcpp::export]]

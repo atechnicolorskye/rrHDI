@@ -1,8 +1,6 @@
 library(Rcpp)
 library(RcppArmadillo)
 
-
-## Panos Toulis
 ## Implements the randomization method for regression models.
 ## Randomization Method for Standard ErrorS  (RAMSES)
 get_clustered_eps = function(y, X, lam, lam0, clustering) {
