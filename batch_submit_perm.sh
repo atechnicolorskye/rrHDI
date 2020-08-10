@@ -5,11 +5,12 @@
 # s: sparsity
 for s in 3 10; do
 # x: x_design
-for x in 'N1' 'G1' 'N2' 'TG' 'TGM'; do
+# for x in 'N1' 'G1' 'N2' 'TG' 'TGM'; do
+for x in 'WB' 'TWB'; do
 # b: b_design
 for b in 'D1'; do
 # e: e_design
-for e in 'N1' 'G1' 'N2'; do
+for e in 'N1' 'G1' 'N2' 'WB'; do
 # g: perm_design
 for g in 'perm'; do
 # r: # sim

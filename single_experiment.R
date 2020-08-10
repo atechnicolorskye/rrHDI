@@ -81,15 +81,21 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       x = NA
       # print(n, p)
       if(X_design=="N1"){
-        x = mvtnorm::rmvnorm(n = n, mean = rep(0, p), sigma=diag(p))
+        x = mvtnorm::rmvnorm(n, mean=rep(0, p), sigma=diag(p))
       } else if(X_design=="G1"){
         x = rmvgamma(n, shape=1, rate=1, corr=diag(p))-1
       } else if(X_design=="N2"){
-        x = matrix((sample(c(-2, 2), size = n*p, replace = T) + rnorm(n*p)), nrow = n, byrow = TRUE)
+        x = matrix((sample(c(-2, 2), size=n*p, replace=T) + rnorm(n*p)), nrow=n, byrow=TRUE)
       } else if(X_design=="TG"){
-        x = mvtnorm::rmvnorm(n = n, mean = rep(0, p), sigma = Tptz)
+        x = mvtnorm::rmvnorm(n, mean=rep(0, p), sigma = Tptz)
       } else if(X_design=="TGM"){
-        x = rmvgamma(n, shape=1, rate=1, corr=Tptz)-1
+        x = rmvgamma(n, shape=1, rate=1, corr=Tptz) - 1
+      } else if(X_design=='WB'){
+        shape = rep(1, p)
+        x = rmvweisd(n, shape=shape, decay=shape) - gamma(2)
+      } else if(X_design=='TWB'){
+        shape = rep(1, p)
+        x = rmvweisd(n, shape=shape, decay=shape, corr=Tptz) - gamma(2)
       }
       
       ## Generate beta
@@ -114,14 +120,17 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       if(err_design=="N1"){
         err = rnorm(n)
       } else if (err_design=="G1"){
-        err = rgamma(n, shape=1, rate = 1)
+        err = rgamma(n, shape=1, rate=1) - 1
       } else if(err_design=="N2"){
-        err = sample(c(-2, 2), size = n, replace = T) + rnorm(n)
+        err = sample(c(-2, 2), size=n, replace=T) + rnorm(n)
       } else if(err_design=="HG"){
-        err = mvtnorm::rmvnorm(n = 1, mean=rep(0, n), sigma = 2 * diag(rowSums(x*x)/p))
+        err = mvtnorm::rmvnorm(n=1, mean=rep(0, n), sigma=2 * diag(rowSums(x*x)/p))
       } else if(err_design=="HMG"){
         err = sample(c(-2, 2), size = n, replace = T) + 
-          mvtnorm::rmvnorm(n = 1, mean=rep(0, n), sigma = 2 * diag(rowSums(x*x)/p))
+          mvtnorm::rmvnorm(n=1, mean=rep(0, n), sigma=2 * diag(rowSums(x*x)/p))
+      } else if(err_design=='WB'){
+        shape = rep(1, p)
+        err = rmvweisd(n, shape=shape, decay=shape) - gamma(2)
       }
       
       y = x %*% beta + as.vector(err)
@@ -139,6 +148,9 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       M = sel_M(S, dantzig_M$icovlist, p, tol=2e-3)$M_star
       out_rr = rr_dantzig(y, x, n_draws, t(M), ind_0, beta_0, ind_1, beta_1, g_design, scale)
 
+      # out_rr = rr_ridge(y, x, n_draws, ind_0, beta_0, ind_1, beta_1, g_design, scale)
+      # out_rr = rr_ridge_old(y, x, n_draws, ind_0, beta_0, ind_1, beta_1, g_design, scale)
+      
       ci_rr_a = out_rr$ci_a
       ci_rr_n = out_rr$ci_n
       stopifnot(nrow(ci_rr_a)==length(beta_0))
@@ -239,7 +251,7 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
                        cov_blpr_n, cov_hdi_n, cov_dlasso_n, cov_silm_n, cov_rr_n,
                        len_blpr_n, len_hdi_n, len_dlasso_n, len_silm_n, len_rr_n))
       }
-      print(Q)
+      # print(Q)
       print(">> Coverage and Length")
       print(colMeans(Q))
     }
@@ -255,10 +267,9 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
     print("--===- --=-=== ==--===")
   }
 }
-
+  
 # main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(opt$n), c(opt$p), opt$n_draws, opt$n_solve, opt$scale)
-# main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, TRUE)
-# main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, FALSE)
+# main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, opt$scale)
 
 # Test
-main_sim(10, 'N2', 'D1', 'HMG', 'perm', 10, 50, 100, 1000, -100, TRUE)
+main_sim(10, 'N2', 'D1', 'HMG', 'sign', 50, 100, 300, 1000, -500, TRUE)

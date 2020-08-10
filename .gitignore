@@ -1,2 +1,5 @@
 fig/
 
+*.csv
+
+.Rproj.user
