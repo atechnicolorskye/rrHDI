@@ -1,14 +1,9 @@
 ## RRI simulations
 rm(list=ls())
-library(fastclime)
-library(glmnet)
-library(lcmix)
-library(mvtnorm)
-library(optparse)
-library(parallel)
+pacman::p_load(fastclime, glmnet, LaplacesDemon, lcmix, mvtnorm, optparse, parallel)
 
-library(HDCI) # Liu et. al
-library(hdi) # Buhlmann
+pacman::p_load(HDCI) # Liu et. al
+pacman::p_load(hdi) # Buhlmann
 source("lasso_inference.R") # Montanari
 source("silm.R") # Zhang and Cheng
 source("randomization_hdi.R") # RR
@@ -31,21 +26,22 @@ opt_parser = OptionParser(option_list=option_list, add_help_option=FALSE)
 opt = parse_args(opt_parser)
 
 main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_list, p_list, n_draws, n_solve, scale=TRUE){
-  print(sprintf("--===-  s:           %d ==--===", s0))
-  print(sprintf("--===-  X_design:    %s ==--===", X_design))
-  print(sprintf("--===-  beta_design: %s ==--===", beta_design))
-  print(sprintf("--===-  err_design:  %s ==--===", err_design))
-  print(sprintf("--===-  g_design:    %s ==--===", g_design))
-  print(sprintf("--===-  nsim:        %s ==--===", nsim))
-  print(sprintf("--===-  n:           %s ==--===", n_list))
-  print(sprintf("--===-  p:           %s ==--===", p_list))
-  print(sprintf("--===-  n_draws:     %s ==--===", n_draws))
-  print(sprintf("--===-  n_solve:     %s ==--===", n_solve))
-  print(sprintf("--===-  scale:       %s ==--===", scale))
-  
   for (i in 1:length(n_list)){
     n = n_list[i]
     p = p_list[i]
+    # p = 2 * n
+    
+    print(sprintf("--===-  s:           %d ==--===", s0))
+    print(sprintf("--===-  X_design:    %s ==--===", X_design))
+    print(sprintf("--===-  beta_design: %s ==--===", beta_design))
+    print(sprintf("--===-  err_design:  %s ==--===", err_design))
+    print(sprintf("--===-  g_design:    %s ==--===", g_design))
+    print(sprintf("--===-  nsim:        %s ==--===", nsim))
+    print(sprintf("--===-  n:           %s ==--===", n))
+    print(sprintf("--===-  p:           %s ==--===", p))
+    print(sprintf("--===-  n_draws:     %s ==--===", n_draws))
+    print(sprintf("--===-  n_solve:     %s ==--===", n_solve))
+    print(sprintf("--===-  scale:       %s ==--===", scale))
     
     if (n_solve < 0){
       # Name columns
@@ -78,18 +74,24 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       print(sprintf("--===-  %d/%d iter ==--===",i, nsim))
       ######################### START DGP ############################
       ## Generate X
-      x = NA
-      # print(n, p)
       if(X_design=="N1"){
         x = mvtnorm::rmvnorm(n, mean=rep(0, p), sigma=diag(p))
       } else if(X_design=="G1"){
-        x = rmvgamma(n, shape=1, rate=1, corr=diag(p))-1
+        x = rmvgamma(n, shape=1, rate=1, corr=diag(p)) - 1
       } else if(X_design=="N2"){
         x = matrix((sample(c(-2, 2), size=n*p, replace=T) + rnorm(n*p)), nrow=n, byrow=TRUE)
       } else if(X_design=="TG"){
         x = mvtnorm::rmvnorm(n, mean=rep(0, p), sigma = Tptz)
       } else if(X_design=="TGM"){
         x = rmvgamma(n, shape=1, rate=1, corr=Tptz) - 1
+      } else if(X_design=='L1'){
+        x = rmvl(n, mu=rep(0, p), Sigma=diag(p))
+      } else if(X_design=='TL'){
+        x = rmvl(n, mu=rep(0, p), Sigma=Tptz)
+      } else if(X_design=='T1'){
+        x = rmvt(n, mu=rep(0, p), Sigma=diag(p))
+      } else if (X_design=='TT'){
+        x = rmvt(n, mu=rep(0, p), Sigma=Tptz)
       } else if(X_design=='WB'){
         shape = rep(1, p)
         x = rmvweisd(n, shape=shape, decay=shape) - gamma(2)
@@ -116,7 +118,6 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       beta_1 = beta[ind_1]
       
       ## Generate errors.
-      err = NA
       if(err_design=="N1"){
         err = rnorm(n)
       } else if (err_design=="G1"){
@@ -128,9 +129,12 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       } else if(err_design=="HMG"){
         err = sample(c(-2, 2), size = n, replace = T) + 
           mvtnorm::rmvnorm(n=1, mean=rep(0, n), sigma=2 * diag(rowSums(x*x)/p))
+      } else if(X_design=='L1'){
+        err = rmvl(n, mu=0, Sigma=1)
+      } else if(X_design=='T1'){
+        err = rmvt(n, mu=0, Sigma=1)
       } else if(err_design=='WB'){
-        shape = rep(1, p)
-        err = rmvweisd(n, shape=shape, decay=shape) - gamma(2)
+        err = rweisd(n, 1, 1) - gamma(2)
       }
       
       y = x %*% beta + as.vector(err)
@@ -139,20 +143,30 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       ##################### START EXPERIMENT #######################
       # Residual Randomization
       print("> Residual Randomization")
+      # Ensure columns of x have L2 norm = sqrt(n)
+      x_ <- x - colMeans(x)
+      col_norm <- sqrt(n / colSums2(x_ ** 2))
+      x_ <- t(t(x_) * col_norm)
+      S <- t(x_) %*% x_ / n
+      # I_m_G_bar <- diag(n) - 1 / n * matrix(1, n, n)
+      # mod_S <- (t(x_) %*% I_m_G_bar %*% x_) / n
       # Solve for M
-      S <- (t(x) %*% x) / n
-      lambda_min <- min(.1, 2 * sqrt(log(p) / n))
+      lambda_min <- min(.005, 2 * sqrt(log(p) / n))
       # Get path of Ms from fastclime
       dantzig_M <- fastclime(S, lambda.min=lambda_min, nlambda=abs(n_solve))
-      # Select best M
-      M = sel_M(S, dantzig_M$icovlist, p, tol=2e-3)$M_star
-      out_rr = rr_dantzig(y, x, n_draws, t(M), ind_0, beta_0, ind_1, beta_1, g_design, scale)
+      print('Done')
+      # # Select best M
+      M <- dantzig_M$icovlist[[dantzig_M$maxnlambda]]
+      # M <- fastclime.selector(dantzig_M$lambdamtx, dantzig_M$icovlist, lambda_min)$icov
+      # M <- sel_M(S, dantzig_M$icovlist, p, tol=2e-3)$M_star
+      # M <- InverseLinfty(mod_S, n, resol=1.3, mu=NULL, maxiter=50, threshold=1e-2, verbose=FALSE)
+      out_rr = rr_dantzig(y, x_, n_draws, t(M), ind_0, beta_0, ind_1, beta_1, g_design, col_norm, scale)
 
       # out_rr = rr_ridge(y, x, n_draws, ind_0, beta_0, ind_1, beta_1, g_design, scale)
       # out_rr = rr_ridge_old(y, x, n_draws, ind_0, beta_0, ind_1, beta_1, g_design, scale)
       
-      ci_rr_a = out_rr$ci_a
-      ci_rr_n = out_rr$ci_n
+      ci_rr_a = out_rr$ci_a / col_norm[ind_0]
+      ci_rr_n = out_rr$ci_n / col_norm[ind_1]
       stopifnot(nrow(ci_rr_a)==length(beta_0))
       stopifnot(nrow(ci_rr_n)==length(beta_1))
       intv_rr_a = (ci_rr_a[,1] <= beta_0) & (ci_rr_a[,2] >= beta_0)
@@ -256,10 +270,10 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       print(colMeans(Q))
     }
     
-    ## Replications over. Save results.
+    ## Save and print results.
     print("--===-    RESULTS ==--===")
     cm = as.data.frame(t(colMeans(Q, na.rm=T)))
-    R1 = cbind(cm, data.frame(s=s0, x=X_design, b=beta_design, e=err_design, g=g_design, n_draws=n_draws, n_solve=n_solve, scale=scale))
+    R1 = cbind(cm, data.frame(s=s0, x=X_design, b=beta_design, e=err_design, g=g_design, n_draws=n_draws, n=n, p=p, n_solve=n_solve, scale=scale))
     Results = rbind(Results, R1)
     write.csv(Results, file=sprintf("out/s_%d_x_%s_b_%s_e_%s_g_%s_r_%d_n_%d_p_%d_d_%d_i_%d_scale_%s.csv",
                                     s0, X_design, beta_design, err_design, g_design, nsim, n, p, n_draws, n_solve, scale))
@@ -272,4 +286,4 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
 # main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, opt$scale)
 
 # Test
-main_sim(10, 'N2', 'D1', 'HMG', 'sign', 50, 100, 300, 1000, -500, TRUE)
+main_sim(10, 'N1', 'D1', 'N1', 'perm', 100, c(100), c(50), 1000, -500, TRUE)

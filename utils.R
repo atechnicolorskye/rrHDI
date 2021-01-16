@@ -1,45 +1,48 @@
 rm(list=ls())
-library(tidyverse)
+pacman::p_load(tidyverse, xtable)
+options(xtable.floating = FALSE)
+options(xtable.timestamp = "")
 
 # # Compile results into single csv file
-# setwd('out')
+setwd('out')
 # 
-# filenames <- list.files(pattern = "_n_50_", full.names = TRUE)
-# df <- filenames %>% lapply(read_csv) %>%  bind_rows
-# df <- df[, -1]
-# write.csv(df, 'small.csv')
+filenames <- list.files(pattern = "_p_50_", full.names = TRUE)
+df <- filenames %>% lapply(read_csv) %>%  bind_rows
+df <- df[, -1]
+write.csv(df, 'gaussian.csv')
 # 
 # filenames <- list.files(pattern = "n_100_", full.names = TRUE)
 # df <- filenames %>% lapply(read_csv) %>%  bind_rows
 # df <- df[, -1]
 # write.csv(df, 'large.csv')
 
-library(xtable)
-options(xtable.floating = FALSE)
-options(xtable.timestamp = "")
-
 ## Process results
 # *_admissible are results filtered for admissible group actions
 # *_admissible_drop are results without unscaled RR
+data <- read.csv("gaussian_jm.csv", stringsAsFactors = F)
 # data <- read.csv("out/b_1000_n_solve_500/large_admissible_drop.csv", stringsAsFactors = F)
-data <- read.csv("out/b_1000_n_solve_500/small_admissible_drop.csv", stringsAsFactors = F)
+# data <- read.csv("out/b_1000_n_solve_500/small_admissible_drop.csv", stringsAsFactors = F)
 data[, 1:20] <- as.numeric(as.matrix(data[, 1:20]))
-
+dow
 win.rateA <- tabulate(apply(data[, 1:5], MAR = 1, function(x){which.min(abs(x - .95))}), nbins=5)
 win.rateN <- tabulate(apply(data[, 11:15], MAR = 1, function(x){which.min(abs(x - .95))}), nbins=5)
 
-# Min, Q2, Q3, Max
+# Min, Q1, Q2, Q3, Max
 tab1 <- round(cbind(apply(data[, 1:5], MAR = 2, min, na.rm =T),
+                    apply(data[, 1:5], MAR = 2, function(x){quantile(x, .25)}),
                     apply(data[, 1:5], MAR = 2, median, na.rm =T),
                     apply(data[, 1:5], MAR = 2, function(x){quantile(x, .75)}),
                     apply(data[, 1:5], MAR = 2, max, na.rm =T),
                     apply(data[, 11:15], MAR = 2, min, na.rm =T),
+                    apply(data[, 11:15], MAR = 2, function(x){quantile(x, .25)}),
                     apply(data[, 11:15], MAR = 2, median, na.rm =T),
                     apply(data[, 11:15], MAR = 2, function(x){quantile(x, .75)}),
                     apply(data[, 11:15], MAR = 2, max, na.rm =T)), 3)
 
-colnames(tab1) <- c("min CR-A", "Q2 CR-A", "Q3 CR-A", "Max CR-A", "min CR-N", "Q2 CR-N", "Q3 CR-N", "Max CR-N")
+colnames(tab1) <- c("min CR-A", "Q1 CR-A", "Q2 CR-A", "Q3 CR-A", "Max CR-A", "min CR-N", "Q1 CR-N", "Q2 CR-N", "Q3 CR-N", "Max CR-N")
 rownames(tab1) <- c("BLPR", "HDI", "SSLASSO", "SILM", "RR")
+
+print(xtable(tab1, digits=3, include.rownames=F))
 
 # Various statistics
 tab2 <- round(cbind(apply(abs(data[, 1:5] - .95), MAR = 2, mean, na.rm =T),
@@ -54,7 +57,7 @@ tab2 <- round(cbind(apply(abs(data[, 1:5] - .95), MAR = 2, mean, na.rm =T),
                     win.rateN), 3)
 
 colnames(tab2) <- c("Mn CR-A", "Md CR-A", "Mn LN-A", "Md LN-A", "Win-A", "Mn CR-N", "Md CR-N", "Mn LN-N", "Md LN-N", "Win-N")
-rownames(tab1) <- c("BLPR", "HDI", "SSLASSO", "SILM", "RR")
+rownames(tab2) <- c("BLPR", "HDI", "SSLASSO", "SILM", "RR")
 
 # Rankings
 rank_dist_a <- apply(data[, 1:5], MAR = 1, function(x){round(abs(x - .95), 5)})
