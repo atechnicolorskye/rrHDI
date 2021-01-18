@@ -67,7 +67,7 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
     Tptz = rho^abs(matrix(1:p, nrow=p, ncol=p, byrow=F) - matrix(1:p, nrow=p, ncol=p, byrow=T))
     
     n_cores = detectCores(all.tests = FALSE, logical = TRUE)
-  
+    
     for (i in 1:nsim){
       set.seed(i)
       
@@ -144,47 +144,47 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       # Residual Randomization
       print("> Residual Randomization")
       # Ensure columns of x have L2 norm = sqrt(n)
-      x_ <- x - colMeans(x)
-      col_norm <- sqrt(n / colSums2(x_ ** 2))
-      x_ <- t(t(x_) * col_norm)
+      # x_ <- x - colMeans(x)
+      col_norm <- sqrt(n / colSums2(x ** 2))
+      x_ <- x %*% diag(col_norm)
       S <- t(x_) %*% x_ / n
       # I_m_G_bar <- diag(n) - 1 / n * matrix(1, n, n)
       # mod_S <- (t(x_) %*% I_m_G_bar %*% x_) / n
       # Solve for M
-      lambda_min <- min(.005, 2 * sqrt(log(p) / n))
+      lambda_min <- min(.1, 2 * sqrt(log(p) / n))
       # Get path of Ms from fastclime
       dantzig_M <- fastclime(S, lambda.min=lambda_min, nlambda=abs(n_solve))
-      print('Done')
-      # # Select best M
+      # Select best M
+      # M <- diag(p)
       M <- dantzig_M$icovlist[[dantzig_M$maxnlambda]]
       # M <- fastclime.selector(dantzig_M$lambdamtx, dantzig_M$icovlist, lambda_min)$icov
       # M <- sel_M(S, dantzig_M$icovlist, p, tol=2e-3)$M_star
       # M <- InverseLinfty(mod_S, n, resol=1.3, mu=NULL, maxiter=50, threshold=1e-2, verbose=FALSE)
       out_rr = rr_dantzig(y, x_, n_draws, t(M), ind_0, beta_0, ind_1, beta_1, g_design, col_norm, scale)
-
+      
       # out_rr = rr_ridge(y, x, n_draws, ind_0, beta_0, ind_1, beta_1, g_design, scale)
       # out_rr = rr_ridge_old(y, x, n_draws, ind_0, beta_0, ind_1, beta_1, g_design, scale)
       
-      ci_rr_a = out_rr$ci_a / col_norm[ind_0]
-      ci_rr_n = out_rr$ci_n / col_norm[ind_1]
+      ci_rr_a = out_rr$ci_a
+      ci_rr_n = out_rr$ci_n
       stopifnot(nrow(ci_rr_a)==length(beta_0))
       stopifnot(nrow(ci_rr_n)==length(beta_1))
-      intv_rr_a = (ci_rr_a[,1] <= beta_0) & (ci_rr_a[,2] >= beta_0)
-      intv_rr_n = (ci_rr_n[,1] <= beta_1) & (ci_rr_n[,2] >= beta_1)
+      intv_rr_a = (ci_rr_a[,1] <= beta_0 / col_norm[ind_0]) & (ci_rr_a[,2] >= beta_0 / col_norm[ind_0])
+      intv_rr_n = (ci_rr_n[,1] <= beta_1 / col_norm[ind_1]) & (ci_rr_n[,2] >= beta_1 / col_norm[ind_1])
       cov_rr_a = mean(intv_rr_a)
       cov_rr_n = mean(intv_rr_n)
-      len_rr_a = mean(ci_rr_a[,2] - ci_rr_a[,1])
-      len_rr_n = mean(ci_rr_n[,2] - ci_rr_n[,1])
-
+      len_rr_a = mean((ci_rr_a[,2] - ci_rr_a[,1]) / col_norm[ind_0])
+      len_rr_n = mean((ci_rr_n[,2] - ci_rr_n[,1]) / col_norm[ind_1])
+      
       # print(sprintf("1Norm(Beta): %f, 1Norm(dBeta): %f, Supp(Beta): %s, 1Norm(eps): %f",
       #               out_rr$norm1_beta, out_rr$norm1_dbeta, out_rr$norm0_beta, out_rr$norm1_eps))
-
+      
       if (n_solve > 0) {
         ## 1. Residual Bootstrap Lasso + Partial Ridge
         print("> Res. Bootstrap + Ridge")
         out_blpr = bootLPR(x = x, y = y, type.boot = "residual", B = n_draws,
                            parallel = TRUE, parallel.boot = TRUE, ncores.boot = n_cores)
-
+        
         ci_blpr_a = t(out_blpr$interval.LPR)[ind_0,]
         ci_blpr_n = t(out_blpr$interval.LPR)[ind_1,]
         stopifnot(nrow(ci_blpr_a)==length(beta_0))
@@ -195,7 +195,7 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
         cov_blpr_n = mean(intv_blpr_n)
         len_blpr_a = mean(ci_blpr_a[,2] - ci_blpr_a[,1])
         len_blpr_n = mean(ci_blpr_n[,2] - ci_blpr_n[,1])
-
+        
         ## 2. Buhlmann, have experienced a weird crash, see slurm-1891414.out
         print("> Bulhmann")
         # Use wild when g_design is sign
@@ -213,7 +213,7 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
                                   B = n_draws, boot.shortcut = FALSE,
                                   return.bootdist = TRUE, wild = wild,
                                   gaussian.stub = FALSE)
-
+        
         ci_hdi_a = confint(out_hdi, level = 0.95, parm=ind_0)
         ci_hdi_n = confint(out_hdi, level = 0.95, parm=ind_1)
         stopifnot(nrow(ci_hdi_a)==length(beta_0))
@@ -224,11 +224,11 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
         cov_hdi_n = mean(intv_hdi_n)
         len_hdi_a = mean(ci_hdi_a[,2] - ci_hdi_a[,1])
         len_hdi_n = mean(ci_hdi_n[,2] - ci_hdi_n[,1])
-
+        
         ## 3. Debiased Lasso
         print("> Debiased LASSO")
         out_dlasso = SSLasso(x, y, intercept = FALSE)
-
+        
         ci_dlasso_a = cbind(out_dlasso$low.lim[ind_0], out_dlasso$up.lim[ind_0])
         ci_dlasso_n = cbind(out_dlasso$low.lim[ind_1], out_dlasso$up.lim[ind_1])
         stopifnot(nrow(ci_dlasso_a)==length(beta_0))
@@ -281,7 +281,7 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
     print("--===- --=-=== ==--===")
   }
 }
-  
+
 # main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(opt$n), c(opt$p), opt$n_draws, opt$n_solve, opt$scale)
 # main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50, 100), c(100, 300), opt$n_draws, opt$n_solve, opt$scale)
 

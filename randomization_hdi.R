@@ -22,7 +22,7 @@ rr_dantzig = function(y, X, n_g, M, a_ind, a_val, n_ind, n_val, g_design, col_no
   t = ac + na
   
   test_ind = c(a_ind, n_ind)
-  test_val = c(a_val, n_val) / col_norm[test_ind]
+  test_val = c(a_val, n_val) * col_norm[test_ind]
   
   Y = matrix(y, nrow=n, ncol=t, byrow=F) # n x p
   # Construct binary indicator for H0_j
@@ -33,17 +33,15 @@ rr_dantzig = function(y, X, n_g, M, a_ind, a_val, n_ind, n_val, g_design, col_no
   sqrt_lasso = RPtests::sqrt_lasso(X, c(y), output_all = TRUE, intercept = FALSE)
   eps = y - X %*% sqrt_lasso$beta
   beta_dlasso = sqrt_lasso$beta + 1 / n * M %*% t(X) %*% eps
-  # eps = eps / col_norm
-  # # Potentially wrong
-  # if (scale_res == 1){
-  #   # Inflates epsilons according to proposed heuristic from eq. 24 of Zhang and Cheng
-  #   eps = eps * sqrt(n / (n - sum(abs(sqrt_lasso$beta) > 0)))
-  # }
+  if (scale_res == 1){
+    # Inflates epsilons according to proposed heuristic from eq. 24 of Zhang and Cheng
+    eps = eps * sqrt(n / (n - sum(abs(sqrt_lasso$beta) > 0)))
+  }
   
   An = (1 / sqrt(n)) * A %*% M %*% t(X)   # (s + # inactive) x n
   Tobs = t(sqrt(n) * (A %*% beta_dlasso - test_val))
-
-  Tvals = matrix(0, nrow=0, ncol=t)      # R x (s + # inactive)
+  
+  Tvals = matrix(0, nrow=0, ncol=t)       # R x (s + # inactive)
   
   R = 1
   while(R < n_g){
@@ -52,7 +50,6 @@ rr_dantzig = function(y, X, n_g, M, a_ind, a_val, n_ind, n_val, g_design, col_no
     } else if(g_design=="sign"){
       G = diag(sample(c(rep(1, n/2), rep(-1, n/2))))
     }
-    # Check for self maps
     if(max(abs(Matrix(G - diag(rep(1,n)))))>0){
       Tvals = rbind(Tvals, t(An %*% G %*% eps))
       R = R +1
@@ -63,14 +60,12 @@ rr_dantzig = function(y, X, n_g, M, a_ind, a_val, n_ind, n_val, g_design, col_no
     quantile(Tvals[,j], c(.025, .975)) / sqrt(n)
   })
   
-  # ci_a = cbind((beta_dlasso[a_ind] - get_q[2,1:ac]) / col_norm[a_ind], (beta_dlasso[a_ind] - get_q[1,1:ac]) / col_norm[a_ind])
-  # ci_n = cbind((beta_dlasso[n_ind] - get_q[2,(ac+1):t]) / col_norm[n_ind], (beta_dlasso[n_ind] - get_q[1,(ac+1):t]) / col_norm[n_ind])
   ci_a = cbind(beta_dlasso[a_ind] - get_q[2,1:ac], beta_dlasso[a_ind] - get_q[1,1:ac])
   ci_n = cbind(beta_dlasso[n_ind] - get_q[2,(ac+1):t], beta_dlasso[n_ind] - get_q[1,(ac+1):t])
   
   returnList <- list('ci_a' = ci_a, 'ci_n' = ci_n, 
                      'norm1_beta' = norm(as.matrix(sqrt_lasso$beta / col_norm), '1'), 'norm1_dbeta' = norm(as.matrix(beta_dlasso / col_norm), '1'),
-                     'norm0_beta' = sum(abs(sqrt_lasso$beta / col_norm) > 0), 'norm1_eps' = norm(as.matrix(eps / col_norm), '1'))
+                     'norm0_beta' = sum(abs(sqrt_lasso$beta / col_norm) > 0), 'norm1_eps' = norm(as.matrix(eps), '1'))
   return(returnList)
 }
 
@@ -99,23 +94,23 @@ sel_M <- function(S, precisions, p, tol=2e-3){
 
 rr_ridge = function(y, X, n_g, a_ind, a_val, n_ind, n_val, g_design, scale_res){
   # Test H0_j: beta_j = val_j individually
-
+  
   n = nrow(X)
   p = ncol(X)
   stopifnot(length(y)==nrow(X))
-
+  
   ac = length(a_ind)
   na = length(n_val)
   t = ac + na
-
+  
   test_ind = c(a_ind, n_ind)
   test_val = c(a_val, n_val)
-
+  
   Y = matrix(y, nrow=n, ncol=t, byrow=F) # n x p
   # Construct binary indicator for H0_j
   A = matrix(0, nrow=t, ncol=p)          # s x p
   for(i in 1:t) { A[i, test_ind[i]] = 1 }
-
+  
   # Sqrt LASSO + epsilon inflation
   sqrt_lasso = RPtests::sqrt_lasso(X, c(y), output_all = TRUE)
   eps = (y - X %*% sqrt_lasso$beta)
@@ -123,7 +118,7 @@ rr_ridge = function(y, X, n_g, a_ind, a_val, n_ind, n_val, g_design, scale_res){
     # Inflates epsilons according to proposed heuristic from eq. 24 of Zhang and Cheng
     eps = eps * sqrt(n / (n - sum(abs(sqrt_lasso$beta) > 0)))
   }
-
+  
   # Ridge + correction
   out = solve_ridge(y, X)
   beta_dridge = out$beta + out$lambda * out$P_inv %*% sqrt_lasso$beta
@@ -138,11 +133,11 @@ rr_ridge = function(y, X, n_g, a_ind, a_val, n_ind, n_val, g_design, scale_res){
   # P_X = t(X) %*% solve(X %*% t(X)) %*% X
   # beta_dridge = beta_ridge - ((matrix(1, p, p) - I) * P_X) %*% sqrt_lasso$beta
   # An = 1 / sqrt(n) * A %*% P_inv %*% t(X)   # (s + # inactive) x n
-
+  
   Tobs = t(sqrt(n) * (A %*% beta_dridge - test_val))
-
+  
   Tvals = matrix(0, nrow=0, ncol=t)         # R x (s + # inactive)
-
+  
   R = 1
   while(R < n_g){
     if(g_design=="perm"){
@@ -155,14 +150,14 @@ rr_ridge = function(y, X, n_g, a_ind, a_val, n_ind, n_val, g_design, scale_res){
       R = R +1
     }
   }
-
+  
   get_q = sapply(1:t, function(j){
     quantile(Tvals[,j], c(.025, .975)) / sqrt(n)
   })
-
+  
   ci_a = cbind(beta_dridge[a_ind]-get_q[2,1:ac], beta_dridge[a_ind]-get_q[1,1:ac])
   ci_n = cbind(beta_dridge[n_ind]-get_q[2,(ac+1):t], beta_dridge[n_ind]-get_q[1,(ac+1):t])
-
+  
   returnList <- list("ci_a" = ci_a,"ci_n" = ci_n,
                      'norm1_beta' = norm(as.matrix(sqrt_lasso$beta), '1'), 'norm1_dbeta' = norm(as.matrix(beta_dridge), '1'),
                      'norm0_beta' = sum(abs(sqrt_lasso$beta) > 0), 'norm1_eps' = norm(as.matrix(eps), '1'))
@@ -172,10 +167,10 @@ rr_ridge = function(y, X, n_g, a_ind, a_val, n_ind, n_val, g_design, scale_res){
 
 solve_ridge = function(y, x) {
   stopifnot(length(y)==nrow(x))
-
+  
   p = ncol(x)
   n = nrow(x)
-
+  
   I = diag(p)
   
   # # Scale lambda_0, P_inv and beta w.r.t to glmnet objective function

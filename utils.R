@@ -3,13 +3,13 @@ pacman::p_load(tidyverse, xtable)
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 
-# # Compile results into single csv file
+# Compile results into single csv file
 setwd('out')
 # 
 filenames <- list.files(pattern = "_p_50_", full.names = TRUE)
 df <- filenames %>% lapply(read_csv) %>%  bind_rows
 df <- df[, -1]
-write.csv(df, 'gaussian.csv')
+write.csv(df, 'p_n_increase_0.1.csv')
 # 
 # filenames <- list.files(pattern = "n_100_", full.names = TRUE)
 # df <- filenames %>% lapply(read_csv) %>%  bind_rows
@@ -23,7 +23,6 @@ data <- read.csv("gaussian_jm.csv", stringsAsFactors = F)
 # data <- read.csv("out/b_1000_n_solve_500/large_admissible_drop.csv", stringsAsFactors = F)
 # data <- read.csv("out/b_1000_n_solve_500/small_admissible_drop.csv", stringsAsFactors = F)
 data[, 1:20] <- as.numeric(as.matrix(data[, 1:20]))
-dow
 win.rateA <- tabulate(apply(data[, 1:5], MAR = 1, function(x){which.min(abs(x - .95))}), nbins=5)
 win.rateN <- tabulate(apply(data[, 11:15], MAR = 1, function(x){which.min(abs(x - .95))}), nbins=5)
 
