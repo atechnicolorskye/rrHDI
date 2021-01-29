@@ -6,10 +6,10 @@ options(xtable.timestamp = "")
 # Compile results into single csv file
 setwd('out')
 # 
-filenames <- list.files(pattern = "_p_100_", full.names = TRUE)
+filenames <- list.files(pattern = "_p_300_", full.names = TRUE)
 df <- filenames %>% lapply(read_csv) %>%  bind_rows
 df <- df[, -1]
-write.csv(df, 'partial_small.csv')
+write.csv(df, '../m_rr_hdi.csv')
 # 
 # filenames <- list.files(pattern = "n_100_", full.names = TRUE)
 # df <- filenames %>% lapply(read_csv) %>%  bind_rows

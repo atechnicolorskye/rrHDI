@@ -1,4 +1,4 @@
-library(SILM) # Zhang and Guang
+pacman::p_load(SILM) # Zhang and Guang
 
 # Fixed SILM code
 SimE.CI = function (X, Y, a_ind, n_ind, M = 1000, alpha = 0.95) 

@@ -3,7 +3,7 @@
 #---------------------------------------------------------------------------------
 # Account information
 
-#SBATCH --account=pi-mkolar        # basic (default), staff, phd, faculty
+#SBATCH --account=staff              # basic (default), staff, phd, faculty
 
 #---------------------------------------------------------------------------------
 # Resources requested
@@ -18,7 +18,7 @@
 #---------------------------------------------------------------------------------
 # Job specific name (helps organize and track progress of jobs)
 
-#SBATCH --job-name=rr    	        # user-defined job name
+#SBATCH --job-name=hdi_hdi    	  # user-defined job name
 
 #---------------------------------------------------------------------------------
 # Print some useful variables
@@ -47,10 +47,6 @@ r=$6
 n=$7
 p=$8
 d=$9
-shift
-i=$9
-shift
-m=$9
 
-echo "$s $x $b $e $g $r $n $p $d $i $m"
-Rscript single_experiment.R -s $s -x $x -b $b -e $e -g $g -r $r -n $n -p $p -d $d -i $i -m $m
+echo "$s $x $b $e $g $r $n $p $d"
+Rscript single_experiment_m_rr_hdi.R -s $s -x $x -b $b -e $e -g $g -r $r -n $n -p $p -d $d

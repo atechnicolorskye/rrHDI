@@ -7,10 +7,7 @@
 # "Confidence intervals and hypothesis testing for high-dimensional regression"
 # 2013, arXiv:1306.3171
 #
-library(Matrix);
-library(glmnet);
-library(expm);
-library(flare);
+pacman::p_load(Matrix, glmnet, expm, flare)
 
 SoftThreshold <- function( x, lambda ) {
   #
