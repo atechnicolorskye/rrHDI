@@ -1,6 +1,6 @@
 ## RRI simulations
 rm(list=ls())
-pacman::p_load(fastclime, glmnet, LaplacesDemon, lcmix, mvtnorm, optparse, parallel)
+pacman::p_load(fastclime, glmnet, lcmix, mvtnorm, optparse, parallel)
 
 pacman::p_load(HDCI) # Liu et. al
 pacman::p_load(hdi) # Buhlmann
@@ -15,6 +15,7 @@ option_list = list(
   make_option(c("-e", "--e_design"), type="character"),
   make_option(c("-g", "--g_design"), type="character"),
   make_option(c("-r", "--nsim"), type="integer"),
+  make_option(c("-c", "--seed_index"), type="integer"),
   make_option(c("-n", "--n"), type="integer"),
   make_option(c("-p", "--p"), type="integer"),
   make_option(c("-d", "--n_draws"), type="integer"),
@@ -26,7 +27,7 @@ opt_parser = OptionParser(option_list=option_list, add_help_option=FALSE)
 opt = parse_args(opt_parser)
 
 
-main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_list, p_list, n_draws, n_solve, scale=TRUE){
+main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, seed_index, n_list, p_list, n_draws, n_solve, scale=TRUE){
   for (i in 1:length(n_list)){
     n = n_list[i]
     p = p_list[i]
@@ -49,21 +50,19 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
     
     if (n_solve < 0){
       # Name columns
-      cols = c( "a_cov_rr_0.25", "a_cov_rr_0.5", "a_cov_rr_1", "a_cov_rr_2", 
-                "a_len_rr_0.25", "a_len_rr_0.5", "a_len_rr_1", "a_len_rr_2",
-                "n_cov_rr_0.25", "n_cov_rr_0.5", "n_cov_rr_1", "n_cov_rr_2",
-                "n_len_rr_0.25", "n_len_rr_0.5", "n_len_rr_1", "n_len_rr_2",
-                'feasibility')
+      cols = c( "a_cov_rr_1", "a_cov_rr_10", "a_cov_rr_50", "a_cov_rr_100", "a_cov_rr_150", "a_cov_rr_200", "a_cov_rr_250", "a_cov_rr_300", "a_cov_rr_500", "a_cov_rr_1000", 
+                "a_len_rr_1", "a_len_rr_10", "a_len_rr_50", "a_len_rr_100", "a_len_rr_150", "a_len_rr_200", "a_len_rr_250", "a_len_rr_300", "a_len_rr_500", "a_len_rr_1000",
+                "n_cov_rr_1", "n_cov_rr_10", "n_cov_rr_50", "n_cov_rr_100", "n_cov_rr_150", "n_cov_rr_200", "n_cov_rr_250", "n_cov_rr_300", "n_cov_rr_500", "n_cov_rr_1000",
+                "n_len_rr_1", "n_len_rr_10", "n_len_rr_50", "n_len_rr_100", "n_len_rr_150", "n_len_rr_200", "n_len_rr_250", "n_len_rr_300", "n_len_rr_500", "n_len_rr_1000")
       # Cache results
       Q = matrix(0, nrow=0, ncol=length(cols)) 
       colnames(Q) = cols
     }
     else{
-      cols = c( "a_cov_blpr", "a_cov_dlasso", "a_cov_silm", "a_cov_rr_0.25", "a_cov_rr_0.5", "a_cov_rr_1", "a_cov_rr_2",
-                "a_len_blpr", "a_len_dlasso", "a_len_silm", "a_len_rr_0.25", "a_len_rr_0.5", "a_len_rr_1", "a_len_rr_2",
-                "n_cov_blpr", "n_cov_dlasso", "n_cov_silm", "n_cov_rr_0.25", "n_cov_rr_0.5", "n_cov_rr_1", "n_cov_rr_2", 
-                "n_len_blpr", "n_len_dlasso", "n_len_silm", "n_len_rr_0.25", "n_len_rr_0.5", "n_len_rr_1", "n_len_rr_2",
-                "feasibility")
+      cols = c("a_cov_blpr", "a_cov_dlasso", "a_cov_silm", "a_cov_rr",
+               "a_len_blpr", "a_len_dlasso", "a_len_silm", "a_len_rr",
+               "n_cov_blpr", "n_cov_dlasso", "n_cov_silm", "n_cov_rr", 
+               "n_len_blpr", "n_len_dlasso", "n_len_silm", "n_len_rr")
       Q = matrix(0, nrow=0, ncol=length(cols)) 
       colnames(Q) = cols
     }
@@ -74,10 +73,10 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
     rho = 0.8
     Tptz = rho^abs(matrix(1:p, nrow=p, ncol=p, byrow=F) - matrix(1:p, nrow=p, ncol=p, byrow=T))
     
-    for (i in 1:nsim){
+    for (i in (seed_index+1):(seed_index+nsim)){
       set.seed(i)
       
-      print(sprintf("--===-  %d/%d iter ==--===",i, nsim))
+      print(sprintf("--===-  %d/%d iter ==--===",i, (seed_index+nsim)))
       ######################### START DGP ############################
       ## Generate X
       if(X_design=="N1"){
@@ -121,6 +120,7 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       beta_0 = beta[ind_0]
       # Pick 15 inactive variables
       ind_1 = ind[(s0+1):(s0+15)]
+      # ind_1 = ind[(s0+1):(s0+1)]
       beta_1 = beta[ind_1]
       
       ## Generate errors.
@@ -149,43 +149,33 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       ##################### START EXPERIMENT #######################
       # Residual Randomization
       print("> Residual Randomization")
-      # x_bar <- colMeans2(x)
-      # S <- t(x - x_bar) %*% (x - x_bar) / n
       S <- t(x) %*% (x) / n
       # Solve for M
       lambda <- 0.25 * sqrt(log(p) / n)
       # Get path of Ms from fastclime
       clime_M <- fastclime(S, lambda.min=lambda, nlambda=abs(n_solve))
-      # Select best M
-      # M <- clime_M$icovlist[[clime_M$maxnlambda]]
-      # M <- (clime_M$icovlist[[clime_M$maxnlambda]] + t(clime_M$icovlist[[clime_M$maxnlambda]])) / 2
-      M <- list()
-      feasibility = 5
-      for (i in c('0.25', '0.5', '1', '2')){
-        M_star <- edit.fastclime.selector(clime_M$lambdamtx, clime_M$icovlist, 4 * as.numeric(i) * lambda)
-        if (norm(M_star$icov, '1') > max_M_1){
-          M_star <- bounded.fastclime.selector(clime_M$lambdamtx, clime_M$icovlist, 4 * as.numeric(i) * lambda, max_M_1)
-        }
-        M[[i]] <- M_star$icov
-        # if (M_star$status == 1){
-        #   feasibility = 4 * as.numeric(i)
-        # }
-      }
       
-      # out_rr = rr_clime(y, x, n_draws, n_solve, ind_0, beta_0, ind_1, beta_1, g_design, scale)
-      out_rr = rr_clime_all(y, x, n_draws, M, ind_0, beta_0, ind_1, beta_1, g_design, scale)
+      out_rr = rr_min_clime(y, x, n_draws, clime_M, lambda, ind_0, beta_0, ind_1, beta_1, g_design, scale)
       
+      # ci_rr_a = out_rr$ci_a
+      # ci_rr_n = out_rr$ci_n
+      # stopifnot(nrow(ci_rr_a)==length(beta_0))
+      # stopifnot(nrow(ci_rr_n)==length(beta_1))
+      # intv_rr_a = (ci_rr_a[,1] <= beta_0) & (ci_rr_a[,2] >= beta_0)
+      # intv_rr_n = (ci_rr_n[,1] <= beta_1) & (ci_rr_n[,2] >= beta_1)
+      # cov_rr_a = mean(intv_rr_a)
+      # cov_rr_n = mean(intv_rr_n)
+      # len_rr_a = mean(ci_rr_a[,2] - ci_rr_a[,1])
+      # len_rr_n = mean(ci_rr_n[,2] - ci_rr_n[,1])
+    
       cov_rr_a <- list()
       cov_rr_n <- list()
       len_rr_a <- list()
       len_rr_n <- list()
       
-      for (i in names(M)){
+      for (i in names(out_rr$ci_a)){
         ci_rr_a = out_rr$ci_a[[i]]
         ci_rr_n = out_rr$ci_n[[i]]
-        # if (((ci_rr_a[,2] - ci_rr_a[,1]) > 3) || ((ci_rr_n[,2] - ci_rr_n[,1]) > 3)){
-        #   browser()
-        # }
         stopifnot(nrow(ci_rr_a)==length(beta_0))
         stopifnot(nrow(ci_rr_n)==length(beta_1))
         intv_rr_a = (ci_rr_a[,1] <= beta_0) & (ci_rr_a[,2] >= beta_0)
@@ -196,9 +186,8 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
         len_rr_n[[i]] = mean(ci_rr_n[,2] - ci_rr_n[,1])
       }
       
-      rm(out_rr)
+      rm(out_rr, clime_M)
       gc()
-      
       
       # print(sprintf("1Norm(Beta): %f, 1Norm(dBeta): %f, Supp(Beta): %s, 1Norm(eps): %f",
       #               out_rr$norm1_beta, out_rr$norm1_dbeta, out_rr$norm0_beta, out_rr$norm1_eps))
@@ -292,19 +281,16 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
       
       ############### Results ############### 
       if (n_solve < 0){
-        Q = rbind(Q, c(cov_rr_a[['0.25']], cov_rr_a[['0.5']], cov_rr_a[['1']], cov_rr_a[['2']],
-                       len_rr_a[['0.25']], len_rr_a[['0.5']], len_rr_a[['1']], len_rr_a[['2']],
-                       cov_rr_n[['0.25']], cov_rr_n[['0.5']], cov_rr_n[['1']], cov_rr_n[['2']],
-                       len_rr_n[['0.25']], len_rr_n[['0.5']], len_rr_n[['1']], len_rr_n[['2']],
-                       feasibility
-        ))
+        Q = rbind(Q, c(cov_rr_a[['1']], cov_rr_a[['10']],  cov_rr_a[['50']],  cov_rr_a[['100']],  cov_rr_a[['150']],  cov_rr_a[['200']],  cov_rr_a[['250']], cov_rr_a[['300']], cov_rr_a[['500']], cov_rr_a[['1000']], 
+                       len_rr_a[['1']], len_rr_a[['10']],  len_rr_a[['50']],  len_rr_a[['100']],  len_rr_a[['150']],  len_rr_a[['200']],  len_rr_a[['250']], len_rr_a[['300']], len_rr_a[['500']], len_rr_a[['1000']], 
+                       cov_rr_n[['1']], cov_rr_n[['10']],  cov_rr_n[['50']],  cov_rr_n[['100']],  cov_rr_n[['150']],  cov_rr_n[['200']],  cov_rr_n[['250']], cov_rr_n[['300']], cov_rr_n[['500']], cov_rr_n[['1000']], 
+                       len_rr_n[['1']], len_rr_n[['10']],  len_rr_n[['50']],  len_rr_n[['100']],  len_rr_n[['150']],  len_rr_n[['200']],  len_rr_n[['250']], len_rr_n[['300']], len_rr_n[['500']], len_rr_n[['1000']]))
       }
       else{
-        Q = rbind(Q, c(cov_blpr_a, cov_dlasso_a, cov_silm_a, cov_rr_a[['0.25']], cov_rr_a[['0.5']], cov_rr_a[['1']], cov_rr_a[['2']],
-                       len_blpr_a, len_dlasso_a, len_silm_a, len_rr_a[['0.25']], len_rr_a[['0.5']], len_rr_a[['1']], len_rr_a[['2']],
-                       cov_blpr_n, cov_dlasso_n, cov_silm_n, cov_rr_n[['0.25']], cov_rr_n[['0.5']], cov_rr_n[['1']], cov_rr_n[['2']],
-                       len_blpr_n, len_dlasso_n, len_silm_n, len_rr_n[['0.25']], len_rr_n[['0.5']], len_rr_n[['1']], len_rr_n[['2']],
-                       feasibility))
+        Q = rbind(Q, c(cov_blpr_a, cov_dlasso_a, cov_silm_a, cov_rr_a,
+                       len_blpr_a, len_dlasso_a, len_silm_a, len_rr_a,
+                       cov_blpr_n, cov_dlasso_n, cov_silm_n, cov_rr_n,
+                       len_blpr_n, len_dlasso_n, len_silm_n, len_rr_n))
       }
       # print(Q)
       print(">> Coverage and Length")
@@ -313,22 +299,25 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
     
     ## Save and print results.
     print("--===-    RESULTS ==--===")
-    cm = as.data.frame(t(colMeans(Q, na.rm=T)))
-    # cm = as.data.frame(Q)
+    # cm = as.data.frame(t(colMeans(Q, na.rm=T)))
+    cm = as.data.frame(Q)
     R1 = cbind(cm, data.frame(s=s0, x=X_design, b=beta_design, e=err_design, g=g_design, n_draws=n_draws, n=n, p=p, n_solve=n_solve, scale=scale))
     Results = rbind(Results, R1)
-    write.csv(Results, file=sprintf("out/s_%d_x_%s_b_%s_e_%s_g_%s_r_%d_n_%d_p_%d_d_%d_i_%d_scale_%s.csv",
-                                    s0, X_design, beta_design, err_design, g_design, nsim, n, p, n_draws, n_solve, scale))
+    dir.create('out', showWarnings = FALSE)
+    path  <- sprintf("out/rr_s_%d_x_%s_b_%s_e_%s_g_%s_r_%d_n_%d_p_%d_d_%d_i_%d_scale_%s", 
+                     s0, X_design, beta_design, err_design, g_design, nsim, n, p, n_draws, n_solve, scale)
+    dir.create(path, showWarnings = FALSE)
+    write.csv(Results, file.path(path, sprintf("i_%d.csv", (seed_index+1))))
     print(Results)
     print("--===- --=-=== ==--===")
   }
 }
 
 # main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(opt$n), c(opt$p), opt$n_draws, opt$n_solve, opt$scale)
-main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50), c(100), opt$n_draws, opt$n_solve, opt$scale)
-main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(100), c(300), opt$n_draws, opt$n_solve, opt$scale)
+# main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, opt$seed_index, c(50), c(100), opt$n_draws, opt$n_solve, opt$scale)
+main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, opt$seed_index, c(100), c(300), opt$n_draws, opt$n_solve, opt$scale)
 
 # # Test
 # ptm <- proc.time()
-# main_sim(10, 'N2', 'D1', 'N2', 'perm', 1000, c(50), c(100), 1000, -500, 1)
+# main_sim(3, 'N2', 'D1', 'N2', 'perm', 5, 2, c(50), c(100), 1000, -500, 1)
 # tt <- proc.time() - ptm

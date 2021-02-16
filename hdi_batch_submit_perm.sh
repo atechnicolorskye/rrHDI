@@ -10,8 +10,8 @@ for x in 'TGM'; do
 # b: b_design
 for b in 'D1'; do
 # e: e_design
-# for e in 'N1' 'G1' 'N2'; do
-for e in 'N2'; do
+for e in 'N1' 'G1' 'N2'; do
+# for e in 'N2'; do
 # g: perm_design
 for g in 'perm'; do
 # r: # sim

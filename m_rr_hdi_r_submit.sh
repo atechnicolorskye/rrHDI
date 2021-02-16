@@ -18,7 +18,7 @@
 #---------------------------------------------------------------------------------
 # Job specific name (helps organize and track progress of jobs)
 
-#SBATCH --job-name=hdi_hdi    	  # user-defined job name
+#SBATCH --job-name=m_rr_hdi    	  # user-defined job name
 
 #---------------------------------------------------------------------------------
 # Print some useful variables
@@ -33,7 +33,6 @@ echo "Num Cores: $SLURM_JOB_CPUS_PER_NODE"
 module purge
 module load R/3.6/3.6.2
 module load gcc/9.2.0
-module load gurobi/9.0/9.0.3
 
 #---------------------------------------------------------------------------------
 # Commands to execute below...
@@ -44,9 +43,11 @@ b=$3
 e=$4
 g=$5
 r=$6
-n=$7
-p=$8
+c=$7
+n=$8
+p=$9
+shift
 d=$9
 
-echo "$s $x $b $e $g $r $n $p $d"
-Rscript single_experiment_m_rr_hdi.R -s $s -x $x -b $b -e $e -g $g -r $r -n $n -p $p -d $d
+echo "$s $x $b $e $g $r $c $n $p $d"
+Rscript single_experiment_m_rr_hdi.R -s $s -x $x -b $b -e $e -g $g -r $r -c $c -n $n -p $p -d $d

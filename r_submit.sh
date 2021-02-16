@@ -33,7 +33,6 @@ echo "Num Cores: $SLURM_JOB_CPUS_PER_NODE"
 module purge
 module load R/3.6/3.6.2
 module load gcc/9.2.0
-module load gurobi/9.0/9.0.3
 
 #---------------------------------------------------------------------------------
 # Commands to execute below...
@@ -44,13 +43,15 @@ b=$3
 e=$4
 g=$5
 r=$6
-n=$7
-p=$8
+c=$7
+n=$8
+p=$9
+shift
 d=$9
 shift
 i=$9
 shift
 m=$9
 
-echo "$s $x $b $e $g $r $n $p $d $i $m"
-Rscript single_experiment.R -s $s -x $x -b $b -e $e -g $g -r $r -n $n -p $p -d $d -i $i -m $m
+echo "$s $x $b $e $g $r $n $c $p $d $i $m"
+Rscript single_experiment.R -s $s -x $x -b $b -e $e -g $g -r $r -c $c -n $n -p $p -d $d -i $i -m $m

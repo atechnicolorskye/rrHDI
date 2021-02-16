@@ -15,6 +15,7 @@ option_list = list(
     make_option(c("-e", "--e_design"), type="character"),
     make_option(c("-g", "--g_design"), type="character"),
     make_option(c("-r", "--nsim"), type="integer"),
+    make_option(c("-c", "--seed_index"), type="integer"),
     make_option(c("-n", "--n"), type="integer"),
     make_option(c("-p", "--p"), type="integer"),
     make_option(c("-d", "--n_draws"), type="integer")
@@ -24,7 +25,7 @@ opt_parser = OptionParser(option_list=option_list, add_help_option=FALSE)
 opt = parse_args(opt_parser)
 
 
-main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_list, p_list, n_draws){
+main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, seed_index, n_list, p_list, n_draws){
     for (i in 1:length(n_list)){
         n = n_list[i]
         p = p_list[i]
@@ -40,10 +41,10 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
         print(sprintf("--===-  p:           %s ==--===", p))
         print(sprintf("--===-  n_draws:     %s ==--===", n_draws))
         
-        cols = c( "a_cov_blpr", "a_cov_dlasso", "a_cov_silm",
-                  "a_len_blpr", "a_len_dlasso", "a_len_silm",
-                  "n_cov_blpr", "n_cov_dlasso", "n_cov_silm", 
-                  "n_len_blpr", "n_len_dlasso", "n_len_silm")
+        cols = c("a_cov_silm",
+                 "a_len_silm",
+                 "n_cov_silm", 
+                 "n_len_silm")
         Q = matrix(0, nrow=0, ncol=length(cols)) 
         colnames(Q) = cols
         Results = matrix(0, nrow=0, ncol=length(cols))
@@ -53,14 +54,14 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
         rho = 0.8
         Tptz = rho^abs(matrix(1:p, nrow=p, ncol=p, byrow=F) - matrix(1:p, nrow=p, ncol=p, byrow=T))
         
-        for (i in 1:nsim){
+        for (i in (seed_index+1):(seed_index+nsim)){
             set.seed(i)
             
-            print(sprintf("--===-  %d/%d iter ==--===",i, nsim))
+            print(sprintf("--===-  %d/%d iter ==--===",i, (seed_index+nsim)))
             ######################### START DGP ############################
             ## Generate X
             if(X_design=="N1"){
-                x = mvtnorm::rmvnorm(n, mean=rep(0, p), sigma=diag(p))
+                x = mvtnorm::rmvnorm(n, mean=rep(0, p), sigma=5 * diag(p))
             } else if(X_design=="G1"){
                 x = rmvgamma(n, shape=1, rate=1, corr=diag(p)) - 1
             } else if(X_design=="N2"){
@@ -126,24 +127,24 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
             ######################### END DGP ############################
             
             ##################### START EXPERIMENT #######################
-            ## 1. Residual Bootstrap Lasso + Partial Ridge
-            print("> Res. Bootstrap + Ridge")
-            out_blpr = bootLPR(x = x, y = y, type.boot = "residual", B = n_draws,
-                               parallel = TRUE, parallel.boot = TRUE, ncores.boot = n_cores)
-            
-            ci_blpr_a = t(out_blpr$interval.LPR)[ind_0,]
-            ci_blpr_n = t(out_blpr$interval.LPR)[ind_1,]
-            stopifnot(nrow(ci_blpr_a)==length(beta_0))
-            stopifnot(nrow(ci_blpr_n)==length(beta_1))
-            intv_blpr_a = (ci_blpr_a[,1] <= beta_0) & (ci_blpr_a[,2] >= beta_0)
-            intv_blpr_n = (ci_blpr_n[,1] <= beta_1) & (ci_blpr_n[,2] >= beta_1)
-            cov_blpr_a = mean(intv_blpr_a)
-            cov_blpr_n = mean(intv_blpr_n)
-            len_blpr_a = mean(ci_blpr_a[,2] - ci_blpr_a[,1])
-            len_blpr_n = mean(ci_blpr_n[,2] - ci_blpr_n[,1])
-            
-            rm(out_blpr)
-            gc()
+            # ## 1. Residual Bootstrap Lasso + Partial Ridge
+            # print("> Res. Bootstrap + Ridge")
+            # out_blpr = bootLPR(x = x, y = y, type.boot = "residual", B = n_draws,
+            #                    parallel = TRUE, parallel.boot = TRUE, ncores.boot = n_cores)
+            # 
+            # ci_blpr_a = t(out_blpr$interval.LPR)[ind_0,]
+            # ci_blpr_n = t(out_blpr$interval.LPR)[ind_1,]
+            # stopifnot(nrow(ci_blpr_a)==length(beta_0))
+            # stopifnot(nrow(ci_blpr_n)==length(beta_1))
+            # intv_blpr_a = (ci_blpr_a[,1] <= beta_0) & (ci_blpr_a[,2] >= beta_0)
+            # intv_blpr_n = (ci_blpr_n[,1] <= beta_1) & (ci_blpr_n[,2] >= beta_1)
+            # cov_blpr_a = mean(intv_blpr_a)
+            # cov_blpr_n = mean(intv_blpr_n)
+            # len_blpr_a = mean(ci_blpr_a[,2] - ci_blpr_a[,1])
+            # len_blpr_n = mean(ci_blpr_n[,2] - ci_blpr_n[,1])
+            # 
+            # rm(out_blpr)
+            # gc()
             
             # ## 2. Buhlmann, have experienced a weird crash, see slurm-1891414.out
             # print("> Bulhmann")
@@ -177,23 +178,23 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
             # rm(out_hdi)
             # gc()
             
-            ## 3. Debiased Lasso
-            print("> Debiased LASSO")
-            out_dlasso = SSLasso(x, y, intercept = FALSE)
-            
-            ci_dlasso_a = cbind(out_dlasso$low.lim[ind_0], out_dlasso$up.lim[ind_0])
-            ci_dlasso_n = cbind(out_dlasso$low.lim[ind_1], out_dlasso$up.lim[ind_1])
-            stopifnot(nrow(ci_dlasso_a)==length(beta_0))
-            stopifnot(nrow(ci_dlasso_n)==length(beta_1))
-            intv_dlasso_a = (ci_dlasso_a[,1] <= beta_0) & (ci_dlasso_a[,2] >= beta_0)
-            intv_dlasso_n = (ci_dlasso_n[,1] <= beta_1) & (ci_dlasso_n[,2] >= beta_1)
-            cov_dlasso_a = mean(intv_dlasso_a)
-            cov_dlasso_n = mean(intv_dlasso_n)
-            len_dlasso_a = mean(ci_dlasso_a[,2] - ci_dlasso_a[,1])
-            len_dlasso_n = mean(ci_dlasso_n[,2] - ci_dlasso_n[,1])
-            
-            rm(out_dlasso)
-            gc()
+            # ## 3. Debiased Lasso
+            # print("> Debiased LASSO")
+            # out_dlasso = SSLasso(x, y, intercept = FALSE)
+            # 
+            # ci_dlasso_a = cbind(out_dlasso$low.lim[ind_0], out_dlasso$up.lim[ind_0])
+            # ci_dlasso_n = cbind(out_dlasso$low.lim[ind_1], out_dlasso$up.lim[ind_1])
+            # stopifnot(nrow(ci_dlasso_a)==length(beta_0))
+            # stopifnot(nrow(ci_dlasso_n)==length(beta_1))
+            # intv_dlasso_a = (ci_dlasso_a[,1] <= beta_0) & (ci_dlasso_a[,2] >= beta_0)
+            # intv_dlasso_n = (ci_dlasso_n[,1] <= beta_1) & (ci_dlasso_n[,2] >= beta_1)
+            # cov_dlasso_a = mean(intv_dlasso_a)
+            # cov_dlasso_n = mean(intv_dlasso_n)
+            # len_dlasso_a = mean(ci_dlasso_a[,2] - ci_dlasso_a[,1])
+            # len_dlasso_n = mean(ci_dlasso_n[,2] - ci_dlasso_n[,1])
+            # 
+            # rm(out_dlasso)
+            # gc()
             
             ## 4. SILM
             print("> SILM")
@@ -201,21 +202,21 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
             
             stopifnot(nrow(ci_silm$a_band.nst)==length(beta_0))
             stopifnot(nrow(ci_silm$n_band.nst)==length(beta_1))
-            intv_silm_a = (ci_silm$a_band.nst[,1] <= beta_0) & (ci_silm$a_band.nst[,2] >= beta_0)
-            intv_silm_n = (ci_silm$n_band.nst[,1] <= beta_1) & (ci_silm$n_band.nst[,2] >= beta_1)
+            intv_silm_a = (ci_silm$a_band.st[,1] <= beta_0) & (ci_silm$a_band.st[,2] >= beta_0)
+            intv_silm_n = (ci_silm$n_band.st[,1] <= beta_1) & (ci_silm$n_band.st[,2] >= beta_1)
             cov_silm_a = mean(intv_silm_a)
             cov_silm_n = mean(intv_silm_n)
-            len_silm_a = mean(ci_silm$a_band.nst[,2] - ci_silm$a_band.nst[,1])
-            len_silm_n = mean(ci_silm$n_band.nst[,2] - ci_silm$n_band.nst[,1])
+            len_silm_a = mean(ci_silm$a_band.st[,2] - ci_silm$a_band.st[,1])
+            len_silm_n = mean(ci_silm$n_band.st[,2] - ci_silm$n_band.st[,1])
             
             rm(ci_silm)
             gc()
         
             ############### Results ############### 
-            Q = rbind(Q, c(cov_blpr_a, cov_dlasso_a, cov_silm_a,
-                           len_blpr_a, len_dlasso_a, len_silm_a,
-                           cov_blpr_n, cov_dlasso_n, cov_silm_n,
-                           len_blpr_n, len_dlasso_n, len_silm_n))
+            Q = rbind(Q, c(cov_silm_a,
+                           len_silm_a,
+                           cov_silm_n,
+                           len_silm_n))
             # print(Q)
             print(">> Coverage and Length")
             print(colMeans(Q))
@@ -223,21 +224,25 @@ main_sim = function(s0, X_design, beta_design, err_design, g_design, nsim, n_lis
         
         ## Save and print results.
         print("--===-    RESULTS ==--===")
-        cm = as.data.frame(t(colMeans(Q, na.rm=T)))
+        # cm = as.data.frame(t(colMeans(Q, na.rm=T)))
+        cm = as.data.frame(Q)
         R1 = cbind(cm, data.frame(s=s0, x=X_design, b=beta_design, e=err_design, g=g_design, n_draws=n_draws, n=n, p=p))
         Results = rbind(Results, R1)
-        write.csv(Results, file=sprintf("out/m_rr_hdi_s_%d_x_%s_b_%s_e_%s_g_%s_r_%d_n_%d_p_%d_d_%d.csv",
-                                        s0, X_design, beta_design, err_design, g_design, nsim, n, p, n_draws))
+        dir.create('out', showWarnings = FALSE)
+        path  <- sprintf("out/m_rr_hdi_s_%d_x_%s_b_%s_e_%s_g_%s_r_%d_n_%d_p_%d_d_%d", 
+                         s0, X_design, beta_design, err_design, g_design, nsim, n, p, n_draws)
+        dir.create(path, showWarnings = FALSE)
+        write.csv(Results, file.path(path, sprintf("i_%d.csv", (seed_index+1))))
         print(Results)
         print("--===- --=-=== ==--===")
     }
 }
 
 # main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(opt$n), c(opt$p), opt$n_draws)
-# main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(50), c(100), opt$n_draws)
-main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, c(100), c(300), opt$n_draws)
+# main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, opt$seed_index, c(50), c(100), opt$n_draws)
+# main_sim(opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, opt$seed_index, c(100), c(300), opt$n_draws)
 
 # # Test
 # ptm <- proc.time()
-# main_sim(10, 'TG', 'D1', 'G1', 'perm', 5, c(50), c(100), 1000)
+main_sim(3, 'N1', 'D1', 'N1', 'perm', 200, 0, c(50), c(100), 1000)
 # tt <- proc.time() - ptm

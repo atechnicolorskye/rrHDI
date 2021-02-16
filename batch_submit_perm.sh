@@ -13,7 +13,9 @@ for e in 'N1' 'G1' 'N2'; do
 # g: perm_design
 for g in 'perm'; do
 # r: # sim
-for r in 1000; do
+for r in 100; do
+# c: seed index
+for c in 0 100 200 300 400 500 600 700 800 900; do
 # n: # obs
 for n in 50; do
 # p: # dim
@@ -23,8 +25,9 @@ for d in 1000; do
 # i: # solves
 for i in -500; do
 # m: rescale errors
-for m in 1; do
-  sbatch --account=pi-mkolar r_submit.sh $s $x $b $e $g $r $n $p $d $i $m &
+for m in 0; do
+  sbatch --account=pi-mkolar r_submit.sh $s $x $b $e $g $r $c $n $p $d $i $m &
+done;
 done;
 done;
 done;
