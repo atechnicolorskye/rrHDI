@@ -125,7 +125,7 @@ rr_min_clime = function(y, X, n_g, clime_M, lambda, a_ind, a_val, n_ind, n_val, 
   }
   
   M <- list()
-  for (i in c('1', '10', '50', '100', '150', '200', '250', '300', '500', '1000')){
+  for (i in c('10000')){
     M[[i]] <- min.fastclime.selector(clime_M$lambdamtx, clime_M$icovlist, lambda, test_ind, group_actions$mean_XGX_n_I, strtoi(i))$icov
   }
   
