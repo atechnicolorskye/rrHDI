@@ -54,4 +54,4 @@ shift
 v=$9
 
 echo "$m $s $x $b $e $g $r $c $n $p $d $v"
-Rscript single_experiment.R -m $m -s $s -x $x -b $b -e $e -g $g -r $r -c $c -n $n -p $p -d $d -v $v &
+Rscript single_experiment.R -m $m -s $s -x $x -b $b -e $e -g $g -r $r -c $c -n $n -p $p -d $d -v $v
