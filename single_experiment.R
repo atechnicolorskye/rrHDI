@@ -26,7 +26,6 @@ option_list = list(
 opt_parser = OptionParser(option_list=option_list, add_help_option=FALSE)
 opt = parse_args(opt_parser)
 
-
 main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, nsim, seed_index, n_list, p_list, n_draws, standard){
     for (i in 1:length(n_list)){
         n = n_list[i]
@@ -56,15 +55,22 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
                  paste("n_cov_s_", procedure, sep=""),
                  paste("n_len_i_", procedure, sep=""),
                  paste("n_len_a_", procedure, sep=""),
-                 paste("n_len_s_", procedure, sep=""))
+                 paste("n_len_s_", procedure, sep="")
+                 )
         Q = matrix(0, nrow=0, ncol=length(cols)) 
         colnames(Q) = cols
         Results = matrix(0, nrow=0, ncol=length(cols))
         colnames(Results) = cols
         Results = as.data.frame(Results)
         
-        rho = 0.9
+        rho = 0.8
         Tptz = rho^abs(matrix(1:p, nrow=p, ncol=p, byrow=F) - matrix(1:p, nrow=p, ncol=p, byrow=T))
+        
+        if (procedure == 'hdi'){
+          n_cores = 3
+        } else {
+          n_cores = 1
+        }
         
         for (i in (seed_index+1):(seed_index+nsim)){
             set.seed(i)
@@ -148,16 +154,22 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
             ##################### START EXPERIMENT #######################
             if (procedure=='rr'){
               print("> Residual Randomization")
-              S <- t(x) %*% (x) / n
-              # Solve for M
-              lambda <- 0.25 * sqrt(log(p) / n)
-              # Get path of Ms from fastclime
-              clime_M <- fastclime(S, lambda.min=lambda, nlambda=500)
+              # S <- t(x) %*% (x) / n
+              # # Solve for M
+              # lambda <- 0.1 * sqrt(log(p) / n)
+              # # Get path of Ms from fastclime
+              # clime_M <- fastclime(S, lambda.min=lambda, nlambda=500)
+              clime_M <- array(0, c(p, p))
               
               out_rr = rr_min_clime(y, x, n_draws, clime_M, lambda, ind_0, beta_0, ind_1, beta_1, g_design, 1)
               
-              delta = '10000'
+              # cov_a <- list()
+              # cov_n <- list()
+              # len_a <- list()
+              # len_n <- list()
               
+              delta = '10000'
+              # for (delta in c('1000', '2500', '5000', '7500', '10000')){
               ci_a = out_rr$ci_a[[delta]] / sd[ind_0] 
               ci_n = out_rr$ci_n[[delta]] / sd[ind_1]
               stopifnot(nrow(ci_a)==length(beta_0))
@@ -168,8 +180,9 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
               cov_n = intv_n
               len_a = ci_a[,2] - ci_a[,1]
               len_n = ci_n[,2] - ci_n[,1]
-
-              rm(out_rr, clime_M)
+                # }
+              # rm(out_rr, clime_M)
+              rm(out_rr)
               gc()
             
             } else if (procedure=='blpr'){
@@ -271,7 +284,8 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
             Q = rbind(Q, c(cov_a,
                            len_a,
                            cov_n,
-                           len_n))
+                           len_n)
+                      )
             # print(Q)
             print(">> Coverage and Length")
             print(colMeans(Q))
@@ -293,9 +307,9 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
     }
 }
 
-main_sim(opt$procedure, opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, opt$seed_index, c(opt$n), c(opt$p), opt$n_draws, opt$standard)
+# main_sim(opt$procedure, opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, opt$seed_index, c(opt$n), c(opt$p), opt$n_draws, opt$standard)
 
 # # Test
 # ptm <- proc.time()
-# main_sim('silm', 15, 'N2', 'D1', 'N1', 'perm', 10, 10, c(50), c(100), 1000, 0)
+main_sim('rr', 4, 'WB', 'D1', 'N1', 'perm', 50, 0, c(50), c(100), 1000, 1)
 # tt <- proc.time() - ptm

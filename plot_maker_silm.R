@@ -2,8 +2,8 @@ pacman::p_load(dplyr, stringr)
 
 # dat_raw <- read.csv("out/combined_means_silm_rr.csv")
 
-n <- 30
-p <- 100
+n <- 100
+p <- 500
 v <- 'a_cov'
 g <- 'perm'
 # cov <- paste(v, 'cov', sep = '_')
@@ -30,10 +30,10 @@ ciLwd <- 2.5 # width of line for .25 - .75 quantiles
 rrOffset <- .05
 silmOffset <- -.05
 
-# setEPS()
-# postscript(paste("silm_rr", n, p, ".eps", sep = "_"), width = 12, height = 6)
+setEPS()
+postscript(paste("silm_rr", n, p, ".eps", sep = "_"), width = 12, height = 6)
 # postscript(paste(paste(v, n, p, sep = '_'), '.eps', sep = ''), width = 7, height = 4)
-par(mfrow = c(2,3), oma = c(4.5, 2.5, 1, 0), mar = c(.5, .25, .5, .25))
+par(mfrow = c(2,3), oma = c(4.5, 2.5, 1, 0), mar = c(.5, .75, .75, .25))
 
 for (s in c(4, 15)){
     silm <- silm_raw[silm_raw$s == s, ]
@@ -65,7 +65,7 @@ for (s in c(4, 15)){
         
         ## Labels for coverage
         if (t == '_i'){
-            mtext(paste("Coverage, s = ", s), side = 2, outer = F, line = 2, cex = .7)
+            mtext(paste("Coverage, s = ", s), side = 2, outer = F, line = 2.25, cex = .5)
             axis(at = seq(ymin, 1, .05), side = 2, cex.axis = .6, las = 2)
         }
         # mtext(paste("n = ", n, "; p = ", p, "; s = ",s, sep = ""))
@@ -87,11 +87,11 @@ for (s in c(4, 15)){
         
         if (s == 4){
             if (t == '_i'){
-                mtext('Isolated', side = 3, outer = F, line = 2, cex = .7)
+                mtext('Isolated', side = 3, outer = F, line = 0.02, cex = .5)
             } else if (t == '_a'){
-                mtext('Adjacent', side = 3, outer = F, line = 2, cex = .7)
+                mtext('Adjacent', side = 3, outer = F, line = 0.02, cex = .5)
             } else if (t == '_s'){
-                mtext('Sandwiched', side = 3, outer = F, line = 2, cex = .7)
+                mtext('Sandwiched', side = 3, outer = F, line = 0.02, cex = .5)
             }
         }
         
@@ -102,7 +102,7 @@ for (s in c(4, 15)){
 }
 
 # Legend
-mtext(paste("Coverage for n = ", n, ", p = ", p, sep = ""), side = 3, outer = TRUE)
+mtext(paste("Coverage for n = ", n, ", p = ", p, sep = ""), side = 3, outer = TRUE, cex = .7)
 par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
 plot(0, 0, type = 'l', bty = 'n', xaxt = 'n', yaxt = 'n')
 legend('bottom',legend = c("RR", "SILM"), col = c("black", "deeppink3"),

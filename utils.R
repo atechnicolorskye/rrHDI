@@ -3,8 +3,15 @@ pacman::p_load(tidyverse, xtable)
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 
+
+# for (i in unique(f_$Type)){
+#   print(paste(i, round(mean(f_[f_$Type == i, ]$'0.5'), 3)))
+#   # print(paste(i, mean(f_[f_$Type == i, ]$'0.25')))
+#   # print(paste(i, mean(f_[f_$Type == i, ]$'0.75')))
+# }
+
 # Compile results into single csv file
-setwd('../silm_50_150')
+setwd('out/rr_ridge_100_300_1')
 
 dirnames <- list.dirs()
 dirnames <- dirnames[-1]
@@ -16,14 +23,16 @@ for (d in dirnames){
 }
 
 # experiment <- '100_300'
-experiment <- 'silm'
+experiment <- 'rr'
 # filenames <- list.files(pattern = "_sign_", full.names = TRUE)
 filenames <- list.files(pattern = '.csv', full.names = TRUE)
 df_means <- data.frame()
 df_quantiles <- data.frame()
 for (f in filenames){
   file <- read_csv(f)
-  m_row <- cbind(t(colMeans(file[, 2:13])), file[1, 14:22])
+  # print(file[1, 14:22])
+  # print(colMeans((file[, 2] - colMeans(file[, 2]))^2) + colMeans(file[, 2]))
+  m_row <- cbind(t(colMeans(file[, c(2:5)])), file[1, 6:10])
   # med
   # m_row <- cbind(experiment, file[1, c(50, 51, 53)], t(colMeans(file[, c(13, 25, 37, 49)])))
   # small
@@ -41,10 +50,11 @@ for (f in filenames){
   # }
   # m_row <- rows
   df_means <- rbind(df_means, m_row)
+  browser()
   q_rows <- cbind(
-            file[1, c(14, 15, 17, 22)],
-            paste(experiment, substr(names(file)[c(5:7, 11:13)], 1, nchar(names(file)[c(5:7, 11:13)])), sep = "_"),
-            t(sapply(c(5:7, 11:13),
+            file[1, c(50, 51, 53, 54)],
+            paste(experiment, substr(names(file)[c(14:25, 38:49)], 1, nchar(names(file)[c(14:25, 38:49)])), sep = "_"),
+            t(sapply(c(14:25, 38:49),
             # paste(experiment, substr(names(file)[c(21, 41)], 1, nchar(names(file)[c(21, 41)])), sep = "_"),
             # t(sapply(c(21, 41),
             # file[1, c(6, 7, 9)],
@@ -59,13 +69,13 @@ for (f in filenames){
             # t(sapply(c(5:7, 11:13),
             function(i){quantile(t(file[, i]), c(0.01, 0.25, 0.5, 0.75, 0.99))}))
            )
-  colnames(q_rows) <- c(names(file)[c(14, 15, 17, 22)], "Type", 0.01, 0.25, 0.5, 0.75, 0.99)
+  colnames(q_rows) <- c(names(file)[c(50, 51, 53, 54)], "Type", 0.01, 0.25, 0.5, 0.75, 0.99)
   # colnames(q_rows) <- c(names(file)[c(6, 7, 9)], "Type", 0.01, 0.25, 0.5, 0.75, 0.99)
   # colnames(q_rows) <- c(names(file)[c(14, 15, 17)], "Type", 0.01, 0.25, 0.5, 0.75, 0.99)
   df_quantiles <- rbind(df_quantiles, q_rows)
 }
-write.csv(df_means, "../silm_50_150.csv")
-write.csv(df_quantiles, "../silm_50_150_ci_quantiles.csv")
+write.csv(df_means, "../rr_perm_med_fixed_comp.csv")
+write.csv(df_quantiles, "../rr_perm_med_fixed_comp_ci_quantiles.csv")
 
 filenames <- c("rr_perm_small_fixed.csv", "rr_sign_small_fixed.csv", "hdi_perm_small.csv", "hdi_sign_small.csv", "m_rr_hdi_perm_small.csv", "m_rr_hdi_sign_small.csv",
                "rr_perm_med_fixed.csv", "rr_sign_med_fixed.csv", "hdi_perm_med.csv", "hdi_sign_med.csv", "m_rr_hdi_perm_med.csv", "m_rr_hdi_sign_med.csv")
