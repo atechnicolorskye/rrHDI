@@ -1,4 +1,4 @@
-pacman::p_load(CVXR, glmnet, hdi, Rmosek, RPtests, tensorr, torch)
+pacman::p_load(CVXR, glmnet, hdi, Rmosek, RPtests)
 
 
 split_perm <- function(n, n_g, X){
@@ -120,66 +120,6 @@ equal_flip <- function(n, n_g, X){
 # }
 
 
-min.fastclime.selector <- function(lambdamtx, icovlist, lambda, test_ind, mean_XGX_n_I, err_base){
-  # Edited to minimise lambda_i + ||M_{, i}||_1 E_Q [|X^T G X / n|_/infty]
-  gcinfo(FALSE)
-  d <- dim(icovlist[[1]])[2]
-  maxnlambda <- dim(lambdamtx)[1]
-  icov <- matrix(0,d,d)
-  adaj <- matrix(0,d,d)
-  seq <- rep(0,d)
-  threshold<-1e-5
-  
-  icovlist_a <- array(0, c(maxnlambda, d, d))
-  for (i in 1:maxnlambda){
-    icovlist_a[i, , ] <- icovlist[[i]]
-  }
-  
-  for(i in 1:d){
-    if (i %in% test_ind){
-      seq[i] <- length(which(lambdamtx[ ,i] > lambda))
-      if((seq[i]+1) > maxnlambda){
-        i_lambdas <- lambdamtx[, i][1:seq[i]]
-        err <- i_lambdas + rowSums(abs(icovlist_a[1:seq[i], , i])) * mean_XGX_n_I
-        i_lambdas[err > err_base[i]] <- 10^10
-      }
-      else{
-        i_lambdas <- lambdamtx[, i][1:(seq[i]+1)]
-        err <- i_lambdas + rowSums(abs(icovlist_a[1:(seq[i]+1), , i])) * mean_XGX_n_I
-        i_lambdas[err > err_base[i]] <- 10^10
-      }
-      icov[, i] <- icovlist[[which.min(i_lambdas)]][, i]
-    }
-    else{
-      temp_lambda <- which(lambdamtx[, i] > lambda)
-      seq[i] <- length(temp_lambda)
-      if((seq[i]+1) > maxnlambda){
-        icov[, i] <- icovlist[[seq[i]]][, i]
-      }
-      else{
-        icov[, i] <- icovlist[[(seq[i]+1)]][, i]
-      }
-    }
-  }
-  
-  icov <- icov*(abs(icov)<= abs(t(icov)))+ t(icov)*(abs(icov)> abs(t(icov)))
-  
-  tmpicov<-icov
-  diag(tmpicov)<-0
-  adaj<-Matrix(tmpicov>threshold, sparse=TRUE)*1
-  
-  sparsity<-(sum(adaj))/(d^2-d)
-  
-  rm(temp_lambda,seq,d,threshold)
-  gc()
-  
-  result<-list("icov"=icov, "adaj"=adaj,"sparsity"=sparsity)
-  class(result)="fastclime.selector"
-  
-  return(result)
-}
-
-
 # min_ell_infinity <- function(XGX_n, S, g, m_i)
 # {
 #   d <- dim(XGX_n)[1]
@@ -242,10 +182,9 @@ min.fastclime.selector <- function(lambdamtx, icovlist, lambda, test_ind, mean_X
 #   
 # }
 
-lp_clime <- function(XGX_n, S, g, lambda)
+lp_clime <- function(S, g, lambda)
 {
-  d <- dim(XGX_n)[1]
-  p <- dim(XGX_n)[3]
+  p <- dim(S)[1]
   
   S_constraints <- array(0, c(p, p+1))
   S_constraints[, p+1] <- 1
@@ -268,40 +207,40 @@ lp_clime <- function(XGX_n, S, g, lambda)
   prob$iparam <- list(OPTIMIZER="OPTIMIZER_FREE_SIMPLEX")
 
   r <- mosek(prob, list(verbose=1))
-  print(r$sol$bas$xx[2*p+1])
   return(list('m'=r$sol$bas$xx[1:p], 'sol'=r$sol$bas))
 }
 
 
-lp_clime <- function(XGX_n, S, g, lambda)
+lp_tf_clime <- function(S, g, mean_XGX_n_I, err)
 {
-  d <- dim(XGX_n)[1]
-  p <- dim(XGX_n)[3]
+  p <- dim(S)[1]
   
-  S_constraints <- array(0, c(p, p+1))
+  S_constraints <- array(0, c(p, p+2))
   S_constraints[, p+1] <- 1
-  # Linear constraints in [x; t]
+  # Linear constraints in [x; u; t1; t2]
   prob <- list(sense="min")
   prob$A <- rbind(cbind(-S, -S_constraints),
                   cbind(-S, S_constraints),
-                  cbind(diag(p), -diag(p), array(0, c(p, 1))),
-                  cbind(diag(p), diag(p), array(0, c(p, 1)))
+                  cbind(diag(p), -diag(p), array(0, c(p, 2))),
+                  cbind(diag(p), diag(p), array(0, c(p, 2))),
+                  c(rep(0, p), rep(-1, p), 0, 1),
+                  c(rep(0, 2*p), 1, mean_XGX_n_I)
   )
   # Bound values for constraints
-  prob$bc <- rbind(blc=c(rep(-Inf, p), -g, rep(-Inf, p), rep(0, p)),
-                   buc=c(-g, rep(Inf, p), rep(0, p), rep(Inf, p)))
+  prob$bc <- rbind(blc=c(rep(-Inf, p), -g, rep(-Inf, p), rep(0, p+2)),
+                   buc=c(-g, rep(Inf, p), rep(0, p), rep(Inf, p+1), err))
   # Bound values for variables
-  prob$bx <- rbind(blx=c(rep(-Inf, p), rep(0, p),  lambda),
-                   bux=c(rep(Inf, 2*p), lambda))
+  prob$bx <- rbind(blx=c(rep(-Inf, p), rep(0, p+2)),
+                   bux=c(rep(Inf, 2*p+2)))
   # Coefficients for variables
-  prob$c <- c(rep(0, p), rep(1, p), 0)
+  prob$c <- c(rep(0, 2*p), 1, 0)
   
   prob$iparam <- list(OPTIMIZER="OPTIMIZER_FREE_SIMPLEX")
-  
   r <- mosek(prob, list(verbose=1))
   print(r$sol$bas$xx[2*p+1])
   return(list('m'=r$sol$bas$xx[1:p], 'sol'=r$sol$bas))
 }
+
 
 rr_min_clime = function(y, X, n_g, clime_M, lambda, a_ind, a_val, n_ind, n_val, g_design, scale_res) {
   # M = sparse M^T obtained via solving the modified CLIME problem
@@ -345,97 +284,18 @@ rr_min_clime = function(y, X, n_g, clime_M, lambda, a_ind, a_val, n_ind, n_val, 
   # }
   
   M <- list()
-  print('All')
-  # # print('Break')
   for (i in c('10000')){
     M[[i]] <- array(0, c(p, p))
-    # M[[i]] <- clime_M$icovlist[[length(clime_M$icovlist)]]
     for (idx in test_ind){
       I_i <- rep(0, p)
       I_i[idx] <- 1
-      # M[[i]][, idx] <- min_ell_infinity(group_actions$XGX_n_m_S, I_i)$m
-      # M[[i]][, idx] <- min_ell_infinity(group_actions$XGX_n, S, I_i, M[[i]][, idx])$m
-      M[[i]][, idx] <- lp_clime(group_actions$XGX_n, S, I_i, 2 * sqrt(log(p) / n))$m
-  #   M[[i]] <- clime_M$icovlist[[length(clime_M$icovlist)]]
-  #   XGX_n <- group_actions$XGX_n
-  #   # XGX_n_m_S <- group_actions$XGX_n_m_S
-  #   S <- t(X) %*% X / n
-  #
-  #   for (idx in test_ind){
-  #     # Initialise variables
-  #     # tau <- Variable(1)
-  #     tau_2 <- Variable(n_g)
-  #     tau_1 <- Variable(1)
-  #
-  #     m_i <- Variable(p)
-  #
-  #     # Warm start with fastclime solution
-  #     m_i@value <- M[[i]][, idx]
-  #
-  #     # obj <- Minimize(tau)
-  #     obj <- Minimize(0.7 * tau_1 + 0.3 / n_g * sum_entries(tau_2))
-  #
-  #     I_i <- rep(0, p)
-  #     I_i[idx] <- 1
-  #
-  #     constraints <- list()
-  #     for (j in 1:n_g){
-  #       constraints <- c(constraints, t(XGX_n[[j]]) %*% m_i <= tau_2[j] * rep(1, p))
-  #       constraints <- c(constraints, t(XGX_n[[j]]) %*% m_i >= -tau_2[j] * rep(1, p))
-  #       # constraints <- c(constraints, t(XGX_n_m_S[j, , ]) %*% m_i + I_i <= tau[j] * rep(1, p))
-  #       # constraints <- c(constraints, t(XGX_n_m_S[j, , ]) %*% m_i + I_i >= -tau[j] * rep(1, p))
-  #     }
-  #     constraints <- c(constraints, - S %*% m_i + I_i <= tau_1 * rep(1, p))
-  #     constraints <- c(constraints, - S %*% m_i + I_i >= -tau_1 * rep(1, p))
-  #
-  #     prob <- Problem(obj, constraints)
-  #
-  #     result <- solve(prob, solver="MOSEK")
-  #
-  #     M[[i]][, idx] <- result$getValue(m_i)
-  #     rm(constraints, prob, result)
-  #     gc()
-    }
-    # Transpose as M not symmetric
+      base_sol <- lp_clime(S, I_i, sqrt(log(p) / n))
+      base_err <- 2 * sqrt(log(p) / n) + sum(abs(base_sol$m)) * group_actions$mean_XGX_n_I
+      M[[i]][, idx] <- lp_tf_clime(S, I_i, group_actions$mean_XGX_n_I, base_err)$m
+    }  
     M[[i]] <- t(M[[i]])
   }
   
-  # M <- list()
-  # # print('Break')
-  # for (i in c('10000')){
-  #   M[[i]] <- clime_M$icovlist[[length(clime_M$icovlist)]]
-  #   XGX_n <- torch_tensor(group_actions$XGX_n)
-  #   I <- torch_eye(p)
-  #   S <- torch_tensor(t(X) %*% X / n)
-  #   
-  #   beta <- 200
-  #   learning_rate <- 1e-3
-  #   iterations <- 10000
-  #   
-  #   loss_approx <- function(idx, m_i, beta) {
-  #     return(torch_logsumexp(beta * torch_abs(I[, idx] - torch_matmul(S, m_i)), dim = 1) / beta + 
-  #              torch_mean(torch_logsumexp(beta * torch_abs(torch_matmul(XGX_n, m_i)), dim = 2) / beta))
-  #   }
-  #   
-  #   for (idx in test_ind){
-  #     # Initialise variables
-  #     m_i <- torch_tensor(M[[i]][, idx], requires_grad = TRUE)
-  #     
-  #     for (iter in 1:iterations){
-  #       loss <- loss_approx(idx, m_i, beta)
-  #       loss$backward()
-  #       
-  #       with_no_grad({
-  #         m_i <- m_i$sub_(learning_rate * m_i$grad)
-  #         m_i$grad$zero_()
-  #         })
-  #     }
-  #     M[[i]][, idx] <- as_array(m_i)
-  #   }
-  #   # Transpose as M not symmetric
-  #   M[[i]] <- t(M[[i]])
-  # }
-
   beta_dlasso <- list()
   norm1_dbeta <- list()
   # Sqrt LASSO + correction

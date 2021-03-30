@@ -311,5 +311,5 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
 
 # # Test
 # ptm <- proc.time()
-main_sim('rr', 4, 'WB', 'D1', 'N1', 'perm', 50, 0, c(50), c(100), 1000, 1)
+main_sim('rr', 4, 'WB', 'D1', 'N1', 'perm', 100, 0, c(50), c(100), 1000, 1)
 # tt <- proc.time() - ptm
