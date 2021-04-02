@@ -140,7 +140,7 @@ for (i in 1:n_e){
     for (j in 1:n_g){
       tau <- tau + max(abs(t(XGX_n[j, , ]) %*% msk$m + i_t ))
     }
-    # print(tau / n_g)
+    print(tau / n_g)
     time[i] <- proc.time() - start
     
     # # nodewise

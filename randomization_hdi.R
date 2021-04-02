@@ -1,8 +1,10 @@
-pacman::p_load(CVXR, glmnet, hdi, Rmosek, RPtests)
+pacman::p_load(CVXR, einsum, glmnet, hdi, Rmosek, RPtests)
 
 
 split_perm <- function(n, n_g, X){
   XG <- array(0, dim=c(n_g, dim(X)[2], dim(X)[1]))
+  # sum_G <- array(0, dim=c(dim(X)[1], dim(X)[1]))
+  # sum_XGX_n <- array(0, dim=c(dim(X)[2], dim(X)[2]))
   XGX_n <- array(0, dim=c(n_g, dim(X)[2], dim(X)[2]))
   XGX_n_I <- array(0, dim=c(n_g))
   
@@ -12,11 +14,15 @@ split_perm <- function(n, n_g, X){
     ind <- rep(0, n)
     ind[fir] <- sample(sec)
     ind[sec] <- sample(fir)
+    # browser()
     G <- diag(length(ind))[ind,]
+    # sum_G <- sum_G + G
     XG[i, , ] <- t(X) %*% G
     XGX_n[i, , ] <- XG[i, , ] %*% X / n
+    # sum_XGX_n <- sum_XGX_n + XGX_n[i, , ]
     XGX_n_I[i] <- max(abs(XGX_n[i, , ])) 
 }
+  # return(list('sum_G'=sum_G/n_g, 'XG'=XG, 'XGX_n'=XGX_n, 'sum_XGX_n'=sum_XGX_n/n_g, 'mean_XGX_n_I'=mean(XGX_n_I)))
   return(list('XG'=XG, 'XGX_n'=XGX_n, 'mean_XGX_n_I'=mean(XGX_n_I)))
 }
 
@@ -62,62 +68,64 @@ equal_flip <- function(n, n_g, X){
 }
 
 
-# min.fastclime.selector <- function(lambdamtx, icovlist, lambda, test_ind, mean_XGX_n_I, C){
-#   # Edited to minimise lambda_i + ||M_{, i}||_1 E_Q [|X^T G X / n|_/infty]
-#   gcinfo(FALSE)
-#   d <- dim(icovlist[[1]])[2]
-#   maxnlambda <- dim(lambdamtx)[1]
-#   icov <- matrix(0,d,d)
-#   adaj <- matrix(0,d,d)
-#   seq <- rep(0,d)
-#   threshold<-1e-5
-#   
-#   icovlist_a <- array(0, c(maxnlambda, d, d))
-#   for (i in 1:maxnlambda){
-#     icovlist_a[i, , ] <- icovlist[[i]]
-#   }
-#   
-#   for(i in 1:d){
-#     if (i %in% test_ind){
-#       seq[i] <- length(which(lambdamtx[ ,i] > lambda))
-#       if((seq[i]+1) > maxnlambda){
-#         i_lambdas <- lambdamtx[, i][1:seq[i]]
-#         err <- C * i_lambdas + rowMaxs(abs(icovlist_a[1:seq[i], , i])) * mean_XGX_n_I
-#       }
-#       else{
-#         i_lambdas <- lambdamtx[, i][1:(seq[i]+1)]
-#         err <- C * i_lambdas + rowMaxs(abs(icovlist_a[1:(seq[i]+1), , i])) * mean_XGX_n_I
-#       }
-#       icov[, i] <- icovlist[[which.min(err)]][, i]
-#     }
-#     else{
-#       temp_lambda <- which(lambdamtx[, i] > lambda)
-#       seq[i] <- length(temp_lambda)
-#       if((seq[i]+1) > maxnlambda){
-#         icov[, i] <- icovlist[[seq[i]]][, i]
-#       }
-#       else{
-#         icov[, i] <- icovlist[[(seq[i]+1)]][, i]
-#       }
-#     }
-#   }
-#   
-#   icov <- icov*(abs(icov)<= abs(t(icov)))+ t(icov)*(abs(icov)> abs(t(icov)))
-#   
-#   tmpicov<-icov
-#   diag(tmpicov)<-0
-#   adaj<-Matrix(tmpicov>threshold, sparse=TRUE)*1
-#   
-#   sparsity<-(sum(adaj))/(d^2-d)
-#   
-#   rm(temp_lambda,seq,d,threshold)
-#   gc()
-#   
-#   result<-list("icov"=icov, "adaj"=adaj,"sparsity"=sparsity)
-#   class(result)="fastclime.selector"
-#   
-#   return(result)
-# }
+min.fastclime.selector <- function(lambdamtx, icovlist, lambda, test_ind, mean_XGX_n_I, C){
+  # Edited to minimise lambda_i + ||M_{, i}||_1 E_Q [|X^T G X / n|_/infty]
+  gcinfo(FALSE)
+  d <- dim(icovlist[[1]])[2]
+  maxnlambda <- dim(lambdamtx)[1]
+  icov <- matrix(0,d,d)
+  adaj <- matrix(0,d,d)
+  seq <- rep(0,d)
+  threshold<-1e-5
+
+  icovlist_a <- array(0, c(maxnlambda, d, d))
+  for (i in 1:maxnlambda){
+    icovlist_a[i, , ] <- icovlist[[i]]
+  }
+
+  for(i in 1:d){
+    if (i %in% test_ind){
+      seq[i] <- length(which(lambdamtx[ ,i] > lambda))
+      if((seq[i]+1) > maxnlambda){
+        i_lambdas <- lambdamtx[, i][1:seq[i]]
+        browser()
+        err <- C * i_lambdas + rowMaxs(abs(icovlist_a[1:seq[i], , i])) * mean_XGX_n_I
+      }
+      else{
+        i_lambdas <- lambdamtx[, i][1:(seq[i]+1)]
+        browser()
+        err <- C * i_lambdas + rowMaxs(abs(icovlist_a[1:(seq[i]+1), , i])) * mean_XGX_n_I
+      }
+      icov[, i] <- icovlist[[which.min(err)]][, i]
+    }
+    else{
+      temp_lambda <- which(lambdamtx[, i] > lambda)
+      seq[i] <- length(temp_lambda)
+      if((seq[i]+1) > maxnlambda){
+        icov[, i] <- icovlist[[seq[i]]][, i]
+      }
+      else{
+        icov[, i] <- icovlist[[(seq[i]+1)]][, i]
+      }
+    }
+  }
+
+  icov <- icov*(abs(icov)<= abs(t(icov)))+ t(icov)*(abs(icov)> abs(t(icov)))
+
+  tmpicov<-icov
+  diag(tmpicov)<-0
+  adaj<-Matrix(tmpicov>threshold, sparse=TRUE)*1
+
+  sparsity<-(sum(adaj))/(d^2-d)
+
+  rm(temp_lambda,seq,d,threshold)
+  gc()
+
+  result<-list("icov"=icov, "adaj"=adaj,"sparsity"=sparsity)
+  class(result)="fastclime.selector"
+
+  return(result)
+}
 
 
 # min_ell_infinity <- function(XGX_n, S, g, m_i)
@@ -182,7 +190,7 @@ equal_flip <- function(n, n_g, X){
 #   
 # }
 
-lp_clime <- function(S, g, lambda)
+lp_clime <- function(S, g, lambda, sol)
 {
   p <- dim(S)[1]
   
@@ -205,40 +213,27 @@ lp_clime <- function(S, g, lambda)
   prob$c <- c(rep(0, p), rep(1, p), 0)
 
   prob$iparam <- list(OPTIMIZER="OPTIMIZER_FREE_SIMPLEX")
+  # prob$iparam <- list(OPTIMIZER="OPTIMIZER_INTPNT")
 
   r <- mosek(prob, list(verbose=1))
   return(list('m'=r$sol$bas$xx[1:p], 'sol'=r$sol$bas))
+  # return(list('m'=r$sol$itr$xx[1:p], 'sol'=r$sol$itr))
 }
 
 
-lp_tf_clime <- function(S, g, mean_XGX_n_I, err)
+lp_tf_clime <- function(prob, g, d, p, err)
 {
-  p <- dim(S)[1]
-  
-  S_constraints <- array(0, c(p, p+2))
-  S_constraints[, p+1] <- 1
-  # Linear constraints in [x; u; t1; t2]
-  prob <- list(sense="min")
-  prob$A <- rbind(cbind(-S, -S_constraints),
-                  cbind(-S, S_constraints),
-                  cbind(diag(p), -diag(p), array(0, c(p, 2))),
-                  cbind(diag(p), diag(p), array(0, c(p, 2))),
-                  c(rep(0, p), rep(-1, p), 0, 1),
-                  c(rep(0, 2*p), 1, mean_XGX_n_I)
-  )
   # Bound values for constraints
-  prob$bc <- rbind(blc=c(rep(-Inf, p), -g, rep(-Inf, p), rep(0, p+2)),
-                   buc=c(-g, rep(Inf, p), rep(0, p), rep(Inf, p+1), err))
-  # Bound values for variables
-  prob$bx <- rbind(blx=c(rep(-Inf, p), rep(0, p+2)),
-                   bux=c(rep(Inf, 2*p+2)))
-  # Coefficients for variables
-  prob$c <- c(rep(0, 2*p), 1, 0)
-  
-  prob$iparam <- list(OPTIMIZER="OPTIMIZER_FREE_SIMPLEX")
+  prob$bc <- rbind(blc=c(array(rep(-Inf, d * p)), array(rep(0, d * p)), rep(-Inf, p), -g, 0),
+                   buc=c(array(rep(0, d * p)), array(rep(Inf, d * p)), -g, rep(Inf, p), err)
+                   )
+  # prob$iparam <- list(OPTIMIZER="OPTIMIZER_FREE_SIMPLEX")
+  prob$iparam <- list(OPTIMIZER="OPTIMIZER_INTPNT")
   r <- mosek(prob, list(verbose=1))
-  print(r$sol$bas$xx[2*p+1])
-  return(list('m'=r$sol$bas$xx[1:p], 'sol'=r$sol$bas))
+  # print(r$sol$bas$xx[p+d+1])
+  print(r$sol$itr$xx[p+d+1])
+  # return(list('m'=r$sol$bas$xx[1:p], 'sol'=r$sol$bas))
+  return(list('m'=r$sol$itr$xx[1:p], 'sol'=r$sol$itr))
 }
 
 
@@ -271,31 +266,85 @@ rr_min_clime = function(y, X, n_g, clime_M, lambda, a_ind, a_val, n_ind, n_val, 
     group_actions <- equal_flip(n, n_g, X)
   }
   
-  S <- t(X) %*% (X) / n
+  array_prod <- einsum_generator("j,ijk->ik")
   
-  # M_base  <- fastclime.selector(clime_M$lambdamtx, clime_M$icovlist, sqrt(log(p) / n))$icov
-  # browser()
-  # system.time(sqrt(log(p) / n) + rowMeans(apply(abs(einsum("ij, kjl-> ikl", A %*% M_base, group_actions$XGX_n)), MAR=c(1, 2), max)))
-  # 
   # M <- list()
-  # # for (i in c('1000', '2500', '5000', '7500', '10000')){
   # for (i in c('10000')){
-  #     M[[i]] <- min.fastclime.selector(clime_M$lambdamtx, clime_M$icovlist, lambda, test_ind, group_actions$mean_XGX_n_I, err_base)$icov
+  #     # M[[i]] <- min.fastclime.selector(clime_M$lambdamtx, clime_M$icovlist, lambda, test_ind, group_actions$mean_XGX_n_I, err_base)$icov
+  #     M[[i]] <- min.fastclime.selector(clime_M$lambdamtx, clime_M$icovlist, lambda, test_ind, XGX_n, err_base)$icov
   # }
   
   M <- list()
   for (i in c('10000')){
-    M[[i]] <- array(0, c(p, p))
+    S <- t(X) %*% (X) / n
+    M[[i]] <- clime_M
+
+    # reshape XGX_n_m_S
+    XGX_n_ <- aperm(group_actions$XGX_n, c(1, 3, 2))
+    XGX_n <- array(0, c(n_g * p, p))
+    for (g in 1:n_g){
+      XGX_n[((g - 1) * p + 1):(g * p), ] <- XGX_n_[g, ,]
+    }
+    rm(XGX_n_)
+    gc()
+
+    # Create constraints for tau
+    XGX_constraints <- array(0, c(n_g * p, n_g+1))
+    for (g in 1:n_g){
+      XGX_temp <- array(0, c(p, n_g+1))
+      XGX_temp[, g] <- 1
+      XGX_constraints[((g - 1) * p + 1):(g * p), ] <- XGX_temp
+    }
+
+    # Create constraints for lamb da
+    S_constraints <- array(0, c(p, n_g+1))
+    S_constraints[, n_g+1] <- 1
+
+    # Linear constraints in [x; tau; lambda]
+    prob <- list(sense="min")
+    prob$A <- rbind(cbind(XGX_n, -XGX_constraints),
+                    cbind(XGX_n, XGX_constraints),
+                    cbind(-S, -S_constraints),
+                    cbind(-S, S_constraints),
+                    c(rep(0, p), rep(1 / n_g,  n_g), 1)
+    )
+
+    rm(XGX_n, XGX_constraints, S_constraints)
+    gc()
+
+    # Bound values for variables
+    prob$bx <- rbind(blx=c(rep(-Inf, p), rep(0, n_g+1)),
+                     bux=c(rep(Inf, p+n_g), 1))
+
+    # Coefficients for variables
+    prob$c <- c(rep(0, p+n_g), 1)
+
     for (idx in test_ind){
       I_i <- rep(0, p)
       I_i[idx] <- 1
       base_sol <- lp_clime(S, I_i, sqrt(log(p) / n))
-      base_err <- 2 * sqrt(log(p) / n) + sum(abs(base_sol$m)) * group_actions$mean_XGX_n_I
-      M[[i]][, idx] <- lp_tf_clime(S, I_i, group_actions$mean_XGX_n_I, base_err)$m
-    }  
+      base_err <- sqrt(log(p) / n) + sum(abs(base_sol$m)) * group_actions$mean_XGX_n_I
+      ptm <- proc.time()
+      # pre-allocate for loop
+      coeff <- c(0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1)
+      err <- array(coeff * sqrt(log(p) / n), c(length(coeff)))
+      m_s <- array(0, c(length(coeff), p))
+      aux_err <- array(0, c(length(coeff)))
+      for (c in 1:length(coeff)){
+        m_s[c, ] <- lp_clime(S, I_i, coeff[c] * sqrt(log(p) / n))$m
+        aux_err[c] <- coeff[c] * sqrt(log(p) / n) + mean(apply(abs(array_prod(m_s[c, ], group_actions$XGX_n)), MAR=1, max))
+      }
+      err[aux_err >= base_err] <- Inf
+      M[[i]][, idx] <- m_s[which.min(err), ]
+      print(err[which.min(err)])
+      # M[[i]][, idx] <- lp_tf_clime(prob, I_i, n_g, p, base_err)$m
+      print(proc.time() - ptm)
+    }
     M[[i]] <- t(M[[i]])
+    rm(prob)
+    gc()
   }
-  
+
   beta_dlasso <- list()
   norm1_dbeta <- list()
   # Sqrt LASSO + correction

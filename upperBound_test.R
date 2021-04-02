@@ -36,11 +36,48 @@ d_lambda <- function(M, xgx, S, a){
 
 
 
+### Function to calculate
+d_lambda1 <- function(M, xgx, S, a){
+  p <- ncol(M)
+  id_a <- diag(p)[a, , drop = F]
+  M_a <- t(M)[a, ]
+  ### calculates the two terms broken apart ### 
+  t1 <- id_a - M_a %*% S
+  t2 <- apply(xgx$XGX_n, MAR = 1, function(z){M_a %*% z})
+  d1 <- max(abs(t1)) + mean(apply(t2, MAR = 2, function(z){max(abs(z))}))
+  d2 <- mean(unlist(apply(t2, MAR = 2, function(z){max(abs(t1 + z))})))
+  # d3 <- max(abs(t1)) + sum(abs(M_a) * mean(apply(xgx$XGX_n, MAR = 1, function(z){M_a %*% z}))
+  
+  ## calculates two terms together
+
+  
+  return(list(d1 = d1, d2 = d2, bias = max(abs(t1))))
+}
+
+### Function to calculate
+d_lambda1a <- function(M, xgx, S, a){
+  p <- ncol(M)
+  id_a <- diag(p)[a, , drop = F]
+  M_a <- t(M)[a, , drop = F]
+  ### calculates the two terms broken apart ### 
+  t1 <- id_a - M_a %*% S
+  t2 <- apply(xgx$XGX_n, MAR = 1, function(z){M_a %*% z})
+  d1 <- max(abs(t1)) + mean(apply(t2, MAR = 2, function(z){max(abs(z))}))
+  d2 <- mean(unlist(apply(t2, MAR = 2, function(z){max(abs(t1 + z))})))
+  # d3 <- max(abs(t1)) + sum(abs(M_a) * mean(apply(xgx$XGX_n, MAR = 1, function(z){M_a %*% z}))
+  
+  ## calculates two terms together
+  
+  
+  return(list(d1 = d1, d2 = d2, bias = max(abs(t1))))
+}
+
+
 ### Set up problem ###
 n <- 100
 p <- 300
 M <- toeplitz(.8^c(0:(p-1)))
-M <- diag(p)
+# M <- diag(p)
 X <- mvtnorm::rmvnorm(n, sigma = M)
 xgx <- split_perm(n, 200, X)
 S <- t(X) %*% X/n
@@ -66,8 +103,9 @@ icovList <- sapply(climeOut$lambdamtx[, a],
                    simplify = F)
 ### theoretically driven M ###
 d1 <- d_lambda(MInit, xgx, S, a)
-d_list <- sapply(icovList, d_lambda, xgx, S, a)
-
+system.time(d_list <- sapply(icovList, d_lambda, xgx, S, a))
+system.time(sapply(icovList, d_lambda1, xgx, S, a))
+system.time(sapply(icovList, d_lambda1a, xgx, S, a))
 
 par(mfrow = c(1,3))
 plot(unlist(d_list[1, ]))

@@ -158,7 +158,9 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
               # # Solve for M
               # lambda <- 0.1 * sqrt(log(p) / n)
               # # Get path of Ms from fastclime
+              # ptm <- proc.time()
               # clime_M <- fastclime(S, lambda.min=lambda, nlambda=500)
+              # print(proc.time() - ptm)
               clime_M <- array(0, c(p, p))
               
               out_rr = rr_min_clime(y, x, n_draws, clime_M, lambda, ind_0, beta_0, ind_1, beta_1, g_design, 1)
@@ -311,5 +313,5 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
 
 # # Test
 # ptm <- proc.time()
-main_sim('rr', 4, 'WB', 'D1', 'N1', 'perm', 100, 0, c(50), c(100), 1000, 1)
+main_sim('rr', 4, 'TGM', 'D1', 'WB', 'perm', 100, 0, c(100), c(300), 200, 1)
 # tt <- proc.time() - ptm
