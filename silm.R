@@ -1,6 +1,6 @@
 pacman::p_load(SILM, RPtests) # Zhang and Guang
 
-# Fixed SILM code
+## Fixed SILM code
 SimE.CI = function (X, Y, a_ind, n_ind, M = 1000, alpha = 0.95) 
 {
   n <- dim(X)[1]
@@ -18,11 +18,9 @@ SimE.CI = function (X, Y, a_ind, n_ind, M = 1000, alpha = 0.95)
     Theta <- solve(Gram)
   }
   sreg <- scalreg(X, Y)
-  # sqrt_lasso <- RPtests::sqrt_lasso(X, c(y), output_all = TRUE, intercept = FALSE)
   beta.hat <- sreg$coefficients
-  # beta.hat <- sqrt_lasso$beta
   sigma.sq <- sum((Y - X %*% beta.hat)^2)/(n - sum(abs(beta.hat) > 0))
-  # Ensure confidence intervals are not infinite
+  # ensure confidence intervals are not infinite
   if (is.infinite(sigma.sq)){
     sigma.sq <- sum((Y - X %*% beta.hat)^2)
   }
@@ -47,7 +45,7 @@ SimE.CI = function (X, Y, a_ind, n_ind, M = 1000, alpha = 0.95)
     a_band.st[i, ] <- cbind(beta.db[a_ind[i]] - a_crit.st*sqrt(Omega[a_ind[i]])/sqrt(n), beta.db[a_ind[i]] + a_crit.st*sqrt(Omega[a_ind[i]])/sqrt(n))
   }
   
-  # Non-active set
+  # Inactive set
   n_band.nst <- matrix(NA, length(n_ind), 2)
   n_band.st <- matrix(NA, length(n_ind), 2)
   for (i in 1:length(n_ind)){
