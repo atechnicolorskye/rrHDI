@@ -3,22 +3,22 @@
 #---------------------------------------------------------------------------------
 # Account information
 
-#SBATCH --account=pi-mkolar        # basic (default), staff, phd, faculty
+#SBATCH --account=LoremIpsum        
 
 #---------------------------------------------------------------------------------
 # Resources requested
 
-#SBATCH --partition=standard       # standard (default), long, gpu, mpi, highmem
+#SBATCH --partition=LoremIpsum     
 #SBATCH --cpus-per-task=1          # number of CPUs requested (for parallel tasks)
 #SBATCH --mem-per-cpu=16G          # requested memory
 #SBATCH --time=2-00:00:00          # wall clock limit (d-hh:mm:ss)
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=sikai.lee@chicagobooth.edu
+#SBATCH --mail-user=LoremIpsum@LoremIpsum.com
 
 #---------------------------------------------------------------------------------
 # Job specific name (helps organize and track progress of jobs)
 
-#SBATCH --job-name=rr    	        # user-defined job name
+#SBATCH --job-name=LoremIpsum    	        # user-defined job name
 
 #---------------------------------------------------------------------------------
 # Print some useful variables
@@ -30,9 +30,7 @@ echo "Num Cores: $SLURM_JOB_CPUS_PER_NODE"
 #---------------------------------------------------------------------------------
 # Load necessary modules for the job
 
-module purge
-module load R/3.6/3.6.2
-module load gcc/9.2.0
+module load R
 
 #---------------------------------------------------------------------------------
 # Commands to execute below...

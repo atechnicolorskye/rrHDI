@@ -1,10 +1,10 @@
-## RRI simulations
+## Simulations: Robust Inference for High-Dimensional Linear Models via Residual Randomization
 rm(list=ls())
 pacman::p_load(fastclime, glmnet, lcmix, mvtnorm, optparse, parallel)
 
 pacman::p_load(HDCI) # Liu et. al
 pacman::p_load(hdi) # Buhlmann
-source("lasso_inference.R") # Montanari
+source("lasso_inference.R") # Javanmard and Montanari
 source("silm.R") # Zhang and Cheng
 source("randomization_hdi.R") # RR
 
@@ -23,10 +23,29 @@ option_list = list(
   make_option(c("-v", "--standard"), type="integer")
 ); 
 
-opt_parser = OptionParser(option_list=option_list, add_help_option=FALSE)
-opt = parse_args(opt_parser)
+opt_parser <- OptionParser(option_list=option_list, add_help_option=FALSE)
+opt <- parse_args(opt_parser)
 
-main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, nsim, seed_index, n_list, p_list, n_draws, standard){
+main_sim <- function(procedure, s0, X_design, beta_design, err_design, g_design, nsim, seed_index, n_list, p_list, n_draws, standard){
+  ### Input:
+  # procedure : choice between BLPR, Debiased Lasso, HDI, RR, SILM
+  # s0 : sparsity
+  # X_design : distribution of X
+  # beta_design : distribution of beta
+  # g_design : "perm" or "sign"
+  # nsim: number of simulations
+  # seed_index : starting seed
+  # n_list : list of number of samples 
+  # p_list : list of dimensions
+  # n_draws: number of bootstrap/randomization draws
+  # standard: 1 to standardize the data, 0 to keep as is
+  
+  ### Output:
+  # a_cov : average coverage of active variables
+  # a_len : average confidence interval length of active variables
+  # n_cov : average coverage of inactive variables
+  # n_len : average confidence interval length of inactive variables
+  
   for (i in 1:length(n_list)){
     n = n_list[i]
     p = p_list[i]
@@ -44,10 +63,10 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
     print(sprintf("--===-  n_draws:     %s ==--===", n_draws))
     print(sprintf("--===-  standard:    %s ==--===", standard))
     
-    cols = c("a_cov_rr_10000", 
-             "a_len_rr_10000",
-             "n_cov_rr_10000",
-             "n_len_rr_10000")
+    cols = c("a_cov",
+             "a_len",
+             "n_cov",
+             "n_len")
     Q = matrix(0, nrow=0, ncol=length(cols)) 
     colnames(Q) = cols
     Results = matrix(0, nrow=0, ncol=length(cols))
@@ -56,12 +75,6 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
     
     rho = 0.8
     Tptz = rho^abs(matrix(1:p, nrow=p, ncol=p, byrow=F) - matrix(1:p, nrow=p, ncol=p, byrow=T))
-    
-    if (procedure == 'hdi'){
-      n_cores = 3
-    } else {
-      n_cores = 1
-    }
     
     for (i in (seed_index+1):(seed_index+nsim)){
       set.seed(i)
@@ -75,9 +88,9 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
         x = rmvgamma(n, shape=1, rate=1, corr=diag(p)) - 1
       } else if (X_design=="N2"){
         x = matrix((sample(c(-2, 2), size=n*p, replace=T) + rnorm(n*p)), nrow=n, byrow=TRUE)
-      } else if (X_design=="TG"){
+      } else if (X_design=="NT"){
         x = mvtnorm::rmvnorm(n, mean=rep(0, p), sigma = Tptz)
-      } else if (X_design=="TGM"){
+      } else if (X_design=="GT"){
         x = rmvgamma(n, shape=1, rate=1, corr=Tptz) - 1
       } else if (X_design=='L1'){
         x = rmvl(n, mu=rep(0, p), Sigma=diag(p))
@@ -89,9 +102,6 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
         x = rmvt(n, mu=rep(0, p), Sigma=Tptz)
       } else if (X_design=='WB'){
         x = rmvweisd(n, shape=rep(0.5, p), decay=1, corr=diag(p)) - gamma(2)
-        # } else if(X_design=='TWB'){
-        #   shape = rep(1, p)
-        #   x = rmvweisd(n, shape=0.5, decay=1, corr=Tptz) - gamma(2)
       }
       
       ## Generate beta
@@ -102,13 +112,13 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
         beta[1:s0] = sample(c(-5, 5), size=s0, replace=T)
       }
       # Shuffle
-      beta[s0:(s0+1)] = beta[(s0+1):s0]
+      beta = sample(beta)
       ind = rev(order(abs(beta)))
-      # Pick active variables, first isolated, second adjacent and third sandwiched
-      ind_0 =  ind[1:3]
+      # Pick active variables
+      ind_0 =  ind[1:s0]
       beta_0 = beta[ind_0]
-      # Pick 15 inactive variables, first adjacent and last two beside isolated
-      ind_1 = ind[(p-2):p]
+      # Pick 15 inactive variables
+      ind_1 = ind[(s0+1):(s0+15)]
       beta_1 = beta[ind_1]
       
       ## Generate errors.
@@ -120,7 +130,7 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
         err = sample(c(-2, 2), size=n, replace=T) + rnorm(n)
       } else if (err_design=="HG"){
         err = mvtnorm::rmvnorm(n=1, mean=rep(0, n), sigma=2 * diag(rowSums(x*x)/p))
-      } else if (err_design=="HMG"){
+      } else if (err_design=="HM"){
         err = sample(c(-2, 2), size = n, replace = T) + 
           mvtnorm::rmvnorm(n=1, mean=rep(0, n), sigma=2 * diag(rowSums(x*x)/p))
       } else if (X_design=='L1'){
@@ -145,35 +155,28 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
       ##################### START EXPERIMENT #######################
       if (procedure=='rr'){
         print("> Residual Randomization")
-        # S <- t(x) %*% (x) / n
-        # # Solve for M
-        # lambda <- 0.1 * sqrt(log(p) / n)
-        # # Get path of Ms from fastclime
-        # clime_M <- fastclime(S, lambda.min=lambda, nlambda=500)
+        ## Original procedure, comment out if want to run tuning free procedure
+        # solve for M
+        lambda <- 0.1 * sqrt(log(p) / n)
+        # get path of Ms from fastclime
+        S <- t(x) %*% (x) / n
+        clime_M <- fastclime(S, lambda.min=lambda, nlambda=500)
+        ## Tuning free procedure, to uncomment 
+        # clime_M <- array(0, c(p, p))
         
-        # out_rr = rr_min_clime(y, x, n_draws, clime_M, lambda, ind_0, beta_0, ind_1, beta_1, g_design, 1)
-        out_rr = rr_ridge(y, x, n_draws, ind_0, beta_0, ind_1, beta_1, g_design, 1)
+        test_ind <- c(ind_0, ind_1)
+        test_val <- c(beta_0, beta_1)
         
-        # cov_a <- list()
-        # cov_n <- list()
-        # len_a <- list()
-        # len_n <- list()
+        out_rr = rr_min_clime(y, x, n_draws, clime_M, lambda, test_ind, test_val, g_design, 1)
         
-        delta = '10000'
-        # for (delta in c('1000', '2500', '5000', '7500', '10000')){
-        ci_a = out_rr$ci_a[[delta]] / sd[ind_0] 
-        ci_n = out_rr$ci_n[[delta]] / sd[ind_1]
-        stopifnot(nrow(ci_a)==length(beta_0))
-        stopifnot(nrow(ci_n)==length(beta_1))
-        intv_a = (ci_a[,1] <= beta_0) & (ci_a[,2] >= beta_0)
-        intv_n = (ci_n[,1] <= beta_1) & (ci_n[,2] >= beta_1)
+        ci = out_rr$ci / sd[test_ind]
+        intv_a = (ci[1:length(ind_0), 1] <= beta_0) & (ci[1:length(ind_0), 2] >= beta_0)
+        intv_n = (ci[(length(ind_0)+1):length(test_ind), 1] <= beta_1) & (ci[(length(ind_0)+1):length(test_ind), 2] >= beta_1)
         cov_a = mean(intv_a)
         cov_n = mean(intv_n)
-        len_a = mean(ci_a[,2] - ci_a[,1])
-        len_n = mean(ci_n[,2] - ci_n[,1])
-        # }
-        # rm(out_rr, clime_M)
-        rm(out_rr)
+        len_a = mean(ci[1:length(ind_0), 2] - ci[1:length(ind_0), 1])
+        len_n = mean(ci[(length(ind_0)+1):length(test_ind),2] - ci[(length(ind_0)+1):length(test_ind), 1])
+        rm(out_rr, clime_M)
         gc()
         
       } else if (procedure=='blpr'){
@@ -197,7 +200,7 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
         
       } else if (procedure=='hdi'){
         print("> Bulhmann")
-        # Use wild when g_design is sign
+        # use wild bootstrap when g_design is sign
         wild = FALSE
         if (g_design == "sign") {
           wild = TRUE
@@ -258,33 +261,22 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
         len_a = ci_a[,2] - ci_a[,1]
         len_n = ci_n[,2] - ci_n[,1]
         
-        # stopifnot(nrow(ci_silm$a_band.st)==length(beta_0))
-        # stopifnot(nrow(ci_silm$n_band.st)==length(beta_1))
-        # intv_silm_a = (ci_silm$a_band.st[,1] / sd[ind_0] <= beta_0) & (ci_silm$a_band.st[,2] / sd[ind_0] >= beta_0)
-        # intv_silm_n = (ci_silm$n_band.st[,1] / sd[ind_1] <= beta_1) & (ci_silm$n_band.st[,2] / sd[ind_1] >= beta_1)
-        # cov_silm_a = mean(intv_silm_a)
-        # cov_silm_n = mean(intv_silm_n)
-        # len_silm_a = mean(ci_silm$a_band.st[,2] / sd[ind_0] - ci_silm$a_band.st[,1] / sd[ind_0])
-        # len_silm_n = mean(ci_silm$n_band.st[,2] / sd[ind_1] - ci_silm$n_band.st[,1] / sd[ind_1])
-        
         rm(ci_silm)
         gc()
       }
       
       ############### Results ############### 
-      Q = rbind(Q, c(cov_a, 
-                     len_a, 
-                     cov_n, 
+      Q = rbind(Q, c(cov_a,
+                     len_a,
+                     cov_n,
                      len_n)
-                )
-      # print(Q)
+      )
       print(">> Coverage and Length")
       print(colMeans(Q))
     }
     
     ## Save and print results.
     print("--===-    RESULTS ==--===")
-    # cm = as.data.frame(t(colMeans(Q, na.rm=T)))
     cm = as.data.frame(Q)
     R1 = cbind(cm, data.frame(s=s0, x=X_design, b=beta_design, e=err_design, g=g_design, n_draws=n_draws, n=n, p=p, standard=standard))
     Results = rbind(Results, R1)
@@ -299,8 +291,3 @@ main_sim = function(procedure, s0, X_design, beta_design, err_design, g_design, 
 }
 
 main_sim(opt$procedure, opt$sparsity, opt$x_design, opt$b_design, opt$e_design, opt$g_design, opt$nsim, opt$seed_index, c(opt$n), c(opt$p), opt$n_draws, opt$standard)
-
-# # Test
-# ptm <- proc.time()
-# main_sim('rr', 4, 'WB', 'D1', 'N1', 'perm', 50, 0, c(50), c(100), 100, 1)
-# tt <- proc.time() - ptm
