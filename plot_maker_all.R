@@ -5,13 +5,12 @@ pacman::p_load(dplyr, stringr)
 ## Plot summary statistics for BLPR, DLASSO, HDI, SILM, RR
 # set working directory
 setwd('~/out')
-# setwd('~/Dropbox/Research/rr_hdi/code/out/50_100_sign_1')
 
 # set plotting parameters
 n <- 50
 p <- 100
-v <- 'n'
-g <- 'sign'
+v <- 'a'
+g <- 'perm'
 
 # get csv files in path
 files <- list.files(path='.', pattern='.csv', recursive = FALSE)
